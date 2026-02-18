@@ -73,7 +73,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		return `https://picsum.photos/1920/1080?random=${random}`;
 	}
 
-	async getImageUrls(): Promise<string[]> {
+	getImageUrls(): string[] {
 		if (this.settings.useUnsplashRandom) {
 			return Array.from({ length: 5 }, () => this.generatePicsumUrl());
 		}
@@ -120,7 +120,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		this.backgroundContainer.className = "background-slideshow-container";
 		document.body.prepend(this.backgroundContainer);
 
-		const imageUrls = await this.getImageUrls();
+		const imageUrls = this.getImageUrls();
 		if (imageUrls.length === 0) return;
 
 		this.blobUrls = imageUrls.filter((url) => url.startsWith("blob:"));
