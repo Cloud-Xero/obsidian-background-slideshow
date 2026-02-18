@@ -1,99 +1,215 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, TFile, normalizePath } from "obsidian";
+import {
+	type BackgroundSlideshowSettings,
+	DEFAULT_SETTINGS,
+	BackgroundSlideshowSettingTab,
+} from "./settings";
 
-// Remember to rename these classes and interfaces!
+export default class BackgroundSlideshowPlugin extends Plugin {
+	settings: BackgroundSlideshowSettings;
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+	private backgroundContainer: HTMLElement | null = null;
+	private layers: HTMLElement[] = [];
+	private currentIndex = 0;
+	private timer: number | null = null;
+	private blobUrls: string[] = [];
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+		this.addSettingTab(new BackgroundSlideshowSettingTab(this.app, this));
+
+		this.app.workspace.onLayoutReady(() => {
+			if (this.settings.enabled) {
+				void this.startSlideshow();
+			}
 		});
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
+			id: "toggle-slideshow",
+			name: "Toggle",
 			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+				this.settings.enabled = !this.settings.enabled;
+				void this.saveSettings();
+				if (this.settings.enabled) {
+					void this.startSlideshow();
+				} else {
+					this.stopSlideshow();
 				}
-				return false;
-			}
+			},
 		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
 	}
 
 	onunload() {
+		this.stopSlideshow();
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		const savedData =
+			(await this.loadData()) as Partial<BackgroundSlideshowSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
+
+		// 既存設定のマイグレーション（文字列配列 → オブジェクト配列）
+		if (
+			this.settings.images.length > 0 &&
+			typeof this.settings.images[0] === "string"
+		) {
+			this.settings.images = (this.settings.images as unknown as string[]).map(
+				(path) => ({
+					path,
+					enabled: true,
+				}),
+			);
+			await this.saveSettings();
+		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-}
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+	private generatePicsumUrl(): string {
+		const random = Math.floor(Math.random() * 1000);
+		return `https://picsum.photos/1920/1080?random=${random}`;
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	async getImageUrls(): Promise<string[]> {
+		if (this.settings.useUnsplashRandom) {
+			return Array.from({ length: 5 }, () => this.generatePicsumUrl());
+		}
+
+		const urls: string[] = [];
+		for (const imageData of this.settings.images) {
+			if (!imageData.enabled) continue;
+
+			const imagePath = imageData.path;
+			if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+				urls.push(imagePath);
+			} else {
+				try {
+					const normalizedPath = normalizePath(imagePath);
+					const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+					if (file instanceof TFile) {
+						const resourcePath = this.app.vault.getResourcePath(file);
+						urls.push(resourcePath);
+					} else {
+						const adapter = this.app.vault.adapter as {
+							getFullPath?: (path: string) => string;
+						};
+						if (adapter.getFullPath) {
+							const fullPath = adapter.getFullPath(normalizedPath);
+							urls.push(`file://${fullPath}`);
+						}
+					}
+				} catch (error) {
+					console.warn(
+						"[BackgroundSlideshow] Failed to load image:",
+						imagePath,
+						error,
+					);
+				}
+			}
+		}
+		return urls;
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	async startSlideshow() {
+		this.stopSlideshow();
+
+		this.backgroundContainer = document.createElement("div");
+		this.backgroundContainer.className = "background-slideshow-container";
+		document.body.prepend(this.backgroundContainer);
+
+		const imageUrls = await this.getImageUrls();
+		if (imageUrls.length === 0) return;
+
+		this.blobUrls = imageUrls.filter((url) => url.startsWith("blob:"));
+
+		this.layers = [];
+		imageUrls.forEach((url, index) => {
+			const layer = document.createElement("div");
+			layer.className = "background-slideshow-layer";
+
+			const img = document.createElement("img");
+			img.src = url;
+			img.addClass("background-slideshow-image");
+
+			layer.appendChild(img);
+			layer.style.opacity = index === 0 ? "1" : "0";
+			layer.style.transition = `opacity ${this.settings.fadeTime}s ease-in-out`;
+			if (this.backgroundContainer) {
+				this.backgroundContainer.appendChild(layer);
+			}
+			this.layers.push(layer);
+		});
+
+		this.applyTransparency();
+		this.currentIndex = 0;
+		this.startTimer();
+	}
+
+	private startTimer() {
+		this.timer = window.setInterval(() => {
+			this.nextSlide();
+		}, this.settings.duration * 1000);
+	}
+
+	private nextSlide() {
+		const totalImages = this.layers.length;
+		if (totalImages <= 1) return;
+
+		const currentLayer = this.layers[this.currentIndex];
+		if (currentLayer) currentLayer.setCssProps({ opacity: "0" });
+
+		this.currentIndex = (this.currentIndex + 1) % totalImages;
+
+		const nextLayer = this.layers[this.currentIndex];
+		if (this.settings.useUnsplashRandom && nextLayer) {
+			const newUrl = this.generatePicsumUrl();
+			const img = nextLayer.querySelector("img");
+			if (img) img.src = newUrl;
+		}
+
+		if (nextLayer) nextLayer.setCssProps({ opacity: "1" });
+	}
+
+	stopSlideshow() {
+		if (this.timer !== null) {
+			window.clearInterval(this.timer);
+			this.timer = null;
+		}
+
+		if (this.blobUrls.length > 0) {
+			this.blobUrls.forEach((url) => URL.revokeObjectURL(url));
+			this.blobUrls = [];
+		}
+
+		if (this.backgroundContainer) {
+			this.backgroundContainer.remove();
+			this.backgroundContainer = null;
+		}
+
+		this.layers = [];
+		this.removeTransparency();
+	}
+
+	applyTransparency() {
+		document.body.style.setProperty(
+			"--background-transparent",
+			`rgba(var(--background-primary-rgb), ${this.settings.paneOpacity})`,
+		);
+		document.body.style.setProperty(
+			"--background-partially-transparent",
+			`rgba(var(--background-primary-rgb), ${this.settings.uiOpacity})`,
+		);
+		document.body.style.setProperty(
+			"--background-tabs-transparent",
+			`rgba(var(--background-primary-rgb), ${this.settings.tabOpacity})`,
+		);
+		document.body.classList.add("background-slideshow-active");
+	}
+
+	private removeTransparency() {
+		document.body.classList.remove("background-slideshow-active");
 	}
 }

@@ -1,8 +1,123 @@
-/*
+/* Background Slideshow Plugin Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.background-slideshow-container {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
 
-If your plugin does not need CSS, delete this file.
+.background-slideshow-layer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
 
-*/
+/* 透明度適用 */
+body.background-slideshow-active {
+	--canvas-background: transparent;
+}
+
+/* メインコンテナを透明化 */
+body.background-slideshow-active .horizontal-main-container {
+	background-color: transparent !important;
+}
+
+/* Obsidianのメインコンテンツを背景画像の上に表示 */
+body.background-slideshow-active .app-container {
+	position: relative;
+	z-index: 1;
+}
+
+/* Make panes transparent */
+body.background-slideshow-active .workspace-tab-container::-webkit-scrollbar-track,
+body.background-slideshow-active :is(.mod-root .view-content, .view-header) {
+	background-color: var(--background-transparent) !important;
+}
+
+/* Make workspace UI elements transparent */
+body.background-slideshow-active :is(
+	.mod-root .workspace-tab-header-container,
+	.workspace-ribbon,
+	.workspace-split,
+	.graph-controls
+),
+body.background-slideshow-active .workspace-ribbon::before {
+	background-color: var(--background-partially-transparent) !important;
+}
+
+/* Make stacked tab headers transparent */
+body.background-slideshow-active .workspace-tab-container .workspace-tab-header:not(.mod-active),
+body.background-slideshow-active .workspace-tab-container .workspace-tab-header.mod-active {
+	background-color: var(--background-tabs-transparent) !important;
+}
+
+/* Remove other backgrounds */
+body.background-slideshow-active :is(
+	.titlebar-button-container,
+	.mod-vertical .workspace-tab-header,
+	.document-search-container,
+	.workspace-leaf,
+	.horizontal-main-container > .workspace,
+	.pdf-sidebar-container,
+	.pdf-container,
+	.pdf-toolbar
+),
+body.background-slideshow-active .workspace-split:not(.mod-root, .mod-horizontal) .workspace-tab-header-container,
+body.background-slideshow-active .workspace-split:not(.mod-left-split, .mod-right-split),
+body.background-slideshow-active .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: transparent !important;
+}
+
+/* Fix double side headers */
+body.background-slideshow-active .workspace-tab-header-container {
+	background-color: unset;
+}
+
+/* Remove tabs weird gradients and exterior curves */
+body.background-slideshow-active .workspace-tab-header.is-active::before,
+body.background-slideshow-active .workspace-tab-header.is-active::after,
+body.background-slideshow-active .view-header-title-container:not(.mod-at-end):after {
+	display: none;
+}
+
+/* Empty state */
+body.background-slideshow-active .empty-state {
+	position: static;
+}
+
+/* Background slideshow image */
+.background-slideshow-image {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center;
+}
+
+/* Multi image select modal */
+.multi-image-select-list {
+	max-height: 400px;
+	overflow-y: auto;
+	margin-bottom: 16px;
+}
+
+.multi-image-select-item {
+	padding: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.multi-image-select-item input[type="checkbox"] {
+	margin-right: 8px;
+}
+
+.modal-button-container {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}

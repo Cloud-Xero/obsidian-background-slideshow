@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-background-slideshow",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Background image slideshow with smooth fade transitions for Obsidian",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
