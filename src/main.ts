@@ -113,7 +113,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		return urls;
 	}
 
-	async startSlideshow() {
+	startSlideshow() {
 		this.stopSlideshow();
 
 		this.backgroundContainer = document.createElement("div");
