@@ -1,5 +1,11 @@
 /* Background Slideshow Plugin Styles */
 
+/* --background-primary の解決に使う一時要素（非表示） */
+.background-slideshow-color-probe {
+	display: none;
+	background-color: var(--background-primary);
+}
+
 .background-slideshow-container {
 	position: fixed;
 	top: 0;

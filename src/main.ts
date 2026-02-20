@@ -193,18 +193,37 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		this.removeTransparency();
 	}
 
+	private getBackgroundRgb(): string {
+		// CSS クラスを使って一時要素を作成し、ブラウザに --background-primary を
+		// 解決させた rgb() 値を取得する。
+		const el = document.body.createDiv({
+			cls: "background-slideshow-color-probe",
+		});
+		const color = getComputedStyle(el).backgroundColor;
+		el.remove();
+
+		// ブラウザは常に "rgb(r, g, b)" または "rgba(r, g, b, a)" で返す
+		const match = color.match(/^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/);
+		if (match) {
+			return `${match[1]}, ${match[2]}, ${match[3]}`;
+		}
+
+		return "30, 30, 30";
+	}
+
 	applyTransparency() {
+		const rgb = this.getBackgroundRgb();
 		document.body.style.setProperty(
 			"--background-transparent",
-			`rgba(var(--background-primary-rgb), ${this.settings.paneOpacity})`,
+			`rgba(${rgb}, ${this.settings.paneOpacity})`,
 		);
 		document.body.style.setProperty(
 			"--background-partially-transparent",
-			`rgba(var(--background-primary-rgb), ${this.settings.uiOpacity})`,
+			`rgba(${rgb}, ${this.settings.uiOpacity})`,
 		);
 		document.body.style.setProperty(
 			"--background-tabs-transparent",
-			`rgba(var(--background-primary-rgb), ${this.settings.tabOpacity})`,
+			`rgba(${rgb}, ${this.settings.tabOpacity})`,
 		);
 		document.body.classList.add("background-slideshow-active");
 	}
