@@ -168,14 +168,8 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: "Use random images",
-						desc: "Use random photos from picsum.photos instead of manual image paths",
+						desc: "Use random photos from Lorem Picsum (picsum.photos) instead of manual image paths",
 						control: { type: "toggle", key: "useUnsplashRandom" },
-					},
-					{
-						name: "",
-						desc: "Using Lorem Picsum for high-quality random photos.",
-						searchable: false,
-						visible: () => this.plugin.settings.useUnsplashRandom,
 					},
 				],
 			},
@@ -271,7 +265,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 				}
 				break;
 			case "useUnsplashRandom":
-				// 画像リストと説明文の表示・非表示を切り替える
+				// 画像リストの表示・非表示を切り替える
 				this.refreshDomState();
 				if (settings.enabled) void this.plugin.startSlideshow();
 				break;
