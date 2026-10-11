@@ -22,10 +22,20 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		// テストは Obsidian ではなく Node 上で動き、window やポップアウトウィンドウが無い。
+		// そのため、ポップアウトウィンドウ対応のためのルールはテストには当てはめない
+		files: ["tests/**/*.ts"],
+		rules: {
+			"obsidianmd/prefer-window-timers": "off",
+			"obsidianmd/no-global-this": "off",
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",
 		"esbuild.config.mjs",
+		"vitest.config.ts",
 		"eslint.config.js",
 		"eslint.config.mts",
 		"version-bump.mjs",
