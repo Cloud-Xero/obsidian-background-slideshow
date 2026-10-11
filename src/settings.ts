@@ -1,5 +1,6 @@
 import {
 	type App,
+	debounce,
 	Menu,
 	Modal,
 	PluginSettingTab,
@@ -121,12 +122,35 @@ const isOpacity = (value: number): string | void => {
 		return "Enter a number between 0 and 1";
 };
 
+const isUrlPath = (path: string): boolean =>
+	path.startsWith("http://") || path.startsWith("https://");
+
 export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 	plugin: BackgroundSlideshowPlugin;
+
+	// 画像パスの入力が止まってから1回だけ保存してスライドショーを作り直す
+	private readonly saveAndRestartDebounced = debounce(
+		() => {
+			void this.saveAndRestart();
+		},
+		1000,
+		true,
+	);
 
 	constructor(app: App, plugin: BackgroundSlideshowPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	hide(): void {
+		// 入力直後に閉じても内容が失われないよう、待ち中の保存を即時実行する
+		this.saveAndRestartDebounced.run();
+		super.hide();
+	}
+
+	private async saveAndRestart(): Promise<void> {
+		await this.plugin.saveSettings();
+		if (this.plugin.settings.enabled) void this.plugin.startSlideshow();
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem<SettingKey>[] {
@@ -287,30 +311,32 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 		imageData: ImageData,
 		index: number,
 	): SettingDefinition<SettingKey> {
-		const isUrl =
-			imageData.path.startsWith("http://") ||
-			imageData.path.startsWith("https://");
-		const imageType = isUrl ? "URL" : "Local";
-		const pathParts = imageData.path.split("/");
-		const displayName = pathParts[pathParts.length - 1] || `Image ${index + 1}`;
-		const nameFor = (enabled: boolean) =>
-			`${enabled ? "✓" : "✗"} ${imageType} - ${displayName}`;
+		// 見出しはその時点のパスと有効/無効から毎回作り直す
+		const nameFor = (path: string, enabled: boolean) => {
+			const pathParts = path.split("/");
+			const displayName =
+				pathParts[pathParts.length - 1] || `Image ${index + 1}`;
+			return `${enabled ? "✓" : "✗"} ${isUrlPath(path) ? "URL" : "Local"} - ${displayName}`;
+		};
+		const placeholderFor = (path: string) =>
+			isUrlPath(path) ? "https://..." : "path/to/image.png";
 
 		return {
-			name: nameFor(imageData.enabled),
+			name: nameFor(imageData.path, imageData.enabled),
 			render: (setting) => {
 				setting
-					.setName(nameFor(imageData.enabled))
+					.setName(nameFor(imageData.path, imageData.enabled))
 					.addText((text) =>
 						text
-							.setPlaceholder(isUrl ? "https://..." : "path/to/image.png")
+							.setPlaceholder(placeholderFor(imageData.path))
 							.setValue(imageData.path)
-							.onChange(async (value) => {
+							.onChange((value) => {
 								const entry = this.plugin.settings.images[index];
-								if (entry) entry.path = value;
-								await this.plugin.saveSettings();
-								if (this.plugin.settings.enabled)
-									void this.plugin.startSlideshow();
+								if (!entry) return;
+								entry.path = value;
+								setting.setName(nameFor(entry.path, entry.enabled));
+								text.setPlaceholder(placeholderFor(entry.path));
+								this.saveAndRestartDebounced();
 							}),
 					)
 					.addToggle((toggle) =>
@@ -322,13 +348,15 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 							.onChange(async (value) => {
 								const entry = this.plugin.settings.images[index];
 								if (entry) entry.enabled = value;
-								setting.setName(nameFor(value));
+								setting.setName(
+									nameFor(entry?.path ?? imageData.path, value),
+								);
 								toggle.setTooltip(
 									value ? "Disable this image" : "Enable this image",
 								);
-								await this.plugin.saveSettings();
-								if (this.plugin.settings.enabled)
-									void this.plugin.startSlideshow();
+								// 待ち中のパス変更があればまとめて反映し、二重に作り直さない
+								this.saveAndRestartDebounced.cancel();
+								await this.saveAndRestart();
 							}),
 					);
 			},
