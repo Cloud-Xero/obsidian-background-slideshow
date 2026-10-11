@@ -140,4 +140,37 @@ describe("getImageUrls", () => {
 
 		expect(plugin.getImageUrls()).toEqual([]);
 	});
+
+	it("Vault に無いファイルは、絶対パスが得られれば file:// URL にする", async () => {
+		const plugin = createPlugin({
+			getFullPath: (path) => `/vault/${path}`,
+		});
+		await loadWith(plugin, {
+			useUnsplashRandom: false,
+			images: [{ path: "outside.png", enabled: true }],
+		});
+
+		expect(plugin.getImageUrls()).toEqual(["file:///vault/outside.png"]);
+	});
+
+	it("1件の読み込みで例外が出ても、その画像だけ除いて警告し、他は返す", async () => {
+		const plugin = createPlugin({
+			getFullPath: (path) => {
+				if (path === "broken.png") throw new Error("boom");
+				return `/vault/${path}`;
+			},
+		});
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		await loadWith(plugin, {
+			useUnsplashRandom: false,
+			images: [
+				{ path: "broken.png", enabled: true },
+				{ path: "https://example.com/ok.jpg", enabled: true },
+			],
+		});
+
+		expect(plugin.getImageUrls()).toEqual(["https://example.com/ok.jpg"]);
+		expect(warn).toHaveBeenCalledTimes(1);
+		warn.mockRestore();
+	});
 });
