@@ -8,8 +8,13 @@ updates:
           # obsidian は minAppVersion と合わせて手動で上げる
           - dependency-name: "obsidian"
       groups:
+          # マイナー・パッチだけをまとめる。メジャー更新はどのグループにも入らず、
+          # パッケージごとに個別の PR になるので、1つずつ判断できる
           dev-dependencies:
               dependency-type: "development"
+              update-types:
+                  - "minor"
+                  - "patch"
 
     - package-ecosystem: "github-actions"
       directory: "/"
