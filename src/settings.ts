@@ -1,8 +1,10 @@
 import {
 	type App,
+	Menu,
 	Modal,
 	PluginSettingTab,
-	Setting,
+	type SettingDefinition,
+	type SettingDefinitionItem,
 	type TFile,
 } from "obsidian";
 import type BackgroundSlideshowPlugin from "./main";
@@ -108,6 +110,17 @@ export class MultiImageSelectModal extends Modal {
 	}
 }
 
+type SettingKey = keyof BackgroundSlideshowSettings;
+
+const isPositive = (value: number): string | void => {
+	if (Number.isNaN(value) || value <= 0) return "Enter a number greater than 0";
+};
+
+const isOpacity = (value: number): string | void => {
+	if (Number.isNaN(value) || value < 0 || value > 1)
+		return "Enter a number between 0 and 1";
+};
+
 export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 	plugin: BackgroundSlideshowPlugin;
 
@@ -116,151 +129,178 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		const scrollPosition = containerEl.scrollTop;
-		containerEl.empty();
+	getSettingDefinitions(): SettingDefinitionItem<SettingKey>[] {
+		const settings = this.plugin.settings;
 
-		setTimeout(() => {
-			containerEl.scrollTop = scrollPosition;
-		}, 0);
+		return [
+			{
+				name: "Enable slideshow",
+				desc: "Toggle background image slideshow",
+				control: { type: "toggle", key: "enabled" },
+			},
+			{
+				name: "Duration (seconds)",
+				desc: "How long each image is displayed",
+				control: {
+					type: "number",
+					key: "duration",
+					placeholder: "60",
+					defaultValue: DEFAULT_SETTINGS.duration,
+					step: "any",
+					validate: isPositive,
+				},
+			},
+			{
+				name: "Fade time (seconds)",
+				desc: "Duration of fade transition between images",
+				control: {
+					type: "number",
+					key: "fadeTime",
+					placeholder: "5",
+					defaultValue: DEFAULT_SETTINGS.fadeTime,
+					step: "any",
+					validate: isPositive,
+				},
+			},
+			{
+				type: "group",
+				heading: "Random images",
+				items: [
+					{
+						name: "Use random images",
+						desc: "Use random photos from Lorem Picsum (picsum.photos) instead of manual image paths",
+						control: { type: "toggle", key: "useUnsplashRandom" },
+					},
+				],
+			},
+			{
+				type: "list",
+				heading: "Images",
+				emptyState: "No images added yet.",
+				visible: () => !this.plugin.settings.useUnsplashRandom,
+				items: settings.images.map((imageData, index) =>
+					this.imageDefinition(imageData, index),
+				),
+				onReorder: (oldIndex, newIndex) => {
+					const item = this.plugin.settings.images.splice(oldIndex, 1)[0];
+					if (item === undefined) return;
+					this.plugin.settings.images.splice(newIndex, 0, item);
+					void this.saveImagesAndRefresh(true);
+				},
+				onDelete: (index) => {
+					this.plugin.settings.images.splice(index, 1);
+					void this.saveImagesAndRefresh(true);
+				},
+				addItem: {
+					name: "Add image",
+					action: (el) => this.showAddImageMenu(el),
+				},
+			},
+			{
+				type: "group",
+				heading: "Transparency",
+				items: [
+					{
+						name: "Pane opacity",
+						desc: "Opacity of page backgrounds (0–1)",
+						control: {
+							type: "number",
+							key: "paneOpacity",
+							placeholder: "0.85",
+							defaultValue: DEFAULT_SETTINGS.paneOpacity,
+							min: 0,
+							max: 1,
+							step: "any",
+							validate: isOpacity,
+						},
+					},
+					{
+						name: "UI opacity",
+						desc: "Opacity of UI backgrounds (0–1)",
+						control: {
+							type: "number",
+							key: "uiOpacity",
+							placeholder: "0.85",
+							defaultValue: DEFAULT_SETTINGS.uiOpacity,
+							min: 0,
+							max: 1,
+							step: "any",
+							validate: isOpacity,
+						},
+					},
+					{
+						name: "Tab opacity",
+						desc: "Opacity of tab backgrounds (0–1)",
+						control: {
+							type: "number",
+							key: "tabOpacity",
+							placeholder: "0.85",
+							defaultValue: DEFAULT_SETTINGS.tabOpacity,
+							min: 0,
+							max: 1,
+							step: "any",
+							validate: isOpacity,
+						},
+					},
+				],
+			},
+		];
+	}
 
-		// 有効/無効トグル
-		new Setting(containerEl)
-			.setName("Enable slideshow")
-			.setDesc("Toggle background image slideshow")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.enabled)
-					.onChange(async (value) => {
-						this.plugin.settings.enabled = value;
-						await this.plugin.saveSettings();
-						if (value) {
-							void this.plugin.startSlideshow();
-						} else {
-							this.plugin.stopSlideshow();
-						}
-					}),
-			);
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		(this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+		await this.plugin.saveSettings();
+		this.applySideEffects(key as SettingKey);
+	}
 
-		// 表示時間
-		new Setting(containerEl)
-			.setName("Duration (seconds)")
-			.setDesc("How long each image is displayed")
-			.addText((text) =>
-				text
-					.setPlaceholder("60")
-					.setValue(String(this.plugin.settings.duration))
-					.onChange(async (value) => {
-						const num = Number(value);
-						if (!Number.isNaN(num) && num > 0) {
-							this.plugin.settings.duration = num;
-							await this.plugin.saveSettings();
-							if (this.plugin.settings.enabled)
-								void this.plugin.startSlideshow();
-						}
-					}),
-			);
-
-		// フェード時間
-		new Setting(containerEl)
-			.setName("Fade time (seconds)")
-			.setDesc("Duration of fade transition between images")
-			.addText((text) =>
-				text
-					.setPlaceholder("5")
-					.setValue(String(this.plugin.settings.fadeTime))
-					.onChange(async (value) => {
-						const num = Number(value);
-						if (!Number.isNaN(num) && num > 0) {
-							this.plugin.settings.fadeTime = num;
-							await this.plugin.saveSettings();
-							if (this.plugin.settings.enabled)
-								void this.plugin.startSlideshow();
-						}
-					}),
-			);
-
-		// ランダム画像設定
-		new Setting(containerEl).setName("Random images").setHeading();
-
-		new Setting(containerEl)
-			.setName("Use random images")
-			.setDesc(
-				"Use random photos from picsum.photos instead of manual image paths",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.useUnsplashRandom)
-					.onChange(async (value) => {
-						this.plugin.settings.useUnsplashRandom = value;
-						await this.plugin.saveSettings();
-						this.display();
-						if (this.plugin.settings.enabled) void this.plugin.startSlideshow();
-					}),
-			);
-
-		if (this.plugin.settings.useUnsplashRandom) {
-			containerEl.createDiv({
-				text: "Using Lorem Picsum for high-quality random photos.",
-				cls: "setting-item-description",
-			});
+	// 設定変更に応じてスライドショーや透明度へ反映する
+	private applySideEffects(key: SettingKey): void {
+		const { settings } = this.plugin;
+		switch (key) {
+			case "enabled":
+				if (settings.enabled) {
+					void this.plugin.startSlideshow();
+				} else {
+					this.plugin.stopSlideshow();
+				}
+				break;
+			case "useUnsplashRandom":
+				// 画像リストの表示・非表示を切り替える
+				this.refreshDomState();
+				if (settings.enabled) void this.plugin.startSlideshow();
+				break;
+			case "duration":
+			case "fadeTime":
+				if (settings.enabled) void this.plugin.startSlideshow();
+				break;
+			case "paneOpacity":
+			case "uiOpacity":
+			case "tabOpacity":
+				if (settings.enabled) this.plugin.applyTransparency();
+				break;
+			default:
+				break;
 		}
+	}
 
-		// 画像リスト（ランダムモードがオフの場合のみ表示）
-		if (!this.plugin.settings.useUnsplashRandom) {
-			new Setting(containerEl).setName("Images").setHeading();
+	private imageDefinition(
+		imageData: ImageData,
+		index: number,
+	): SettingDefinition<SettingKey> {
+		const isUrl =
+			imageData.path.startsWith("http://") ||
+			imageData.path.startsWith("https://");
+		const imageType = isUrl ? "URL" : "Local";
+		const pathParts = imageData.path.split("/");
+		const displayName = pathParts[pathParts.length - 1] || `Image ${index + 1}`;
+		const nameFor = (enabled: boolean) =>
+			`${enabled ? "✓" : "✗"} ${imageType} - ${displayName}`;
 
-			this.plugin.settings.images.forEach((imageData, index) => {
-				const isUrl =
-					imageData.path.startsWith("http://") ||
-					imageData.path.startsWith("https://");
-				const imageType = isUrl ? "URL" : "Local";
-				const statusIcon = imageData.enabled ? "✓" : "✗";
-				const pathParts = imageData.path.split("/");
-				const displayName =
-					pathParts[pathParts.length - 1] || `Image ${index + 1}`;
-
-				const setting = new Setting(containerEl)
-					.setName(`${statusIcon} ${imageType} - ${displayName}`)
-					.addExtraButton((button) =>
-						button
-							.setIcon("arrow-up")
-							.setTooltip("Move up")
-							.onClick(async () => {
-								if (index > 0) {
-									const prev = this.plugin.settings.images[index - 1];
-									const curr = this.plugin.settings.images[index];
-									if (prev !== undefined && curr !== undefined) {
-										this.plugin.settings.images[index - 1] = curr;
-										this.plugin.settings.images[index] = prev;
-									}
-									await this.plugin.saveSettings();
-									this.display();
-									if (this.plugin.settings.enabled)
-										void this.plugin.startSlideshow();
-								}
-							}),
-					)
-					.addExtraButton((button) =>
-						button
-							.setIcon("arrow-down")
-							.setTooltip("Move down")
-							.onClick(async () => {
-								if (index < this.plugin.settings.images.length - 1) {
-									const curr = this.plugin.settings.images[index];
-									const next = this.plugin.settings.images[index + 1];
-									if (curr !== undefined && next !== undefined) {
-										this.plugin.settings.images[index] = next;
-										this.plugin.settings.images[index + 1] = curr;
-									}
-									await this.plugin.saveSettings();
-									this.display();
-									if (this.plugin.settings.enabled)
-										void this.plugin.startSlideshow();
-								}
-							}),
-					)
+		return {
+			name: nameFor(imageData.enabled),
+			render: (setting) => {
+				setting
+					.setName(nameFor(imageData.enabled))
 					.addText((text) =>
 						text
 							.setPlaceholder(isUrl ? "https://..." : "path/to/image.png")
@@ -282,160 +322,59 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 							.onChange(async (value) => {
 								const entry = this.plugin.settings.images[index];
 								if (entry) entry.enabled = value;
+								setting.setName(nameFor(value));
+								toggle.setTooltip(
+									value ? "Disable this image" : "Enable this image",
+								);
 								await this.plugin.saveSettings();
-								this.display();
-								if (this.plugin.settings.enabled)
-									void this.plugin.startSlideshow();
-							}),
-					)
-					.addButton((button) =>
-						button
-							.setButtonText("Delete")
-							.setWarning()
-							.onClick(async () => {
-								this.plugin.settings.images.splice(index, 1);
-								await this.plugin.saveSettings();
-								this.display();
 								if (this.plugin.settings.enabled)
 									void this.plugin.startSlideshow();
 							}),
 					);
+			},
+		};
+	}
 
-				// ドラッグ&ドロップ
-				const settingEl = setting.settingEl;
-				settingEl.draggable = true;
-				settingEl.dataset.index = index.toString();
-
-				settingEl.addEventListener("dragstart", (e: DragEvent) => {
-					if (e.dataTransfer) {
-						e.dataTransfer.effectAllowed = "move";
-						e.dataTransfer.setData("text/plain", index.toString());
-					}
-					settingEl.setCssProps({ opacity: "0.5" });
-				});
-				settingEl.addEventListener("dragend", () => {
-					settingEl.setCssProps({ opacity: "1" });
-				});
-				settingEl.addEventListener("dragover", (e: DragEvent) => {
-					e.preventDefault();
-					if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-					settingEl.setCssProps({
-						"border-top": "2px solid var(--interactive-accent)",
+	// 追加ボタンから Vault の画像か URL を選んで追加する
+	private showAddImageMenu(el: HTMLElement): void {
+		const menu = new Menu();
+		menu.addItem((item) =>
+			item
+				.setTitle("Add image from vault")
+				.setIcon("image")
+				.onClick(() => {
+					new MultiImageSelectModal(this.app, (files) => {
+						for (const file of files) {
+							this.plugin.settings.images.push({
+								path: file.path,
+								enabled: true,
+							});
+						}
+						void this.saveImagesAndRefresh(true);
+					}).open();
+				}),
+		);
+		menu.addItem((item) =>
+			item
+				.setTitle("Add image URL")
+				.setIcon("link")
+				.onClick(() => {
+					this.plugin.settings.images.push({
+						path: "https://",
+						enabled: true,
 					});
-				});
-				settingEl.addEventListener("dragleave", () => {
-					settingEl.setCssProps({ "border-top": "" });
-				});
-				settingEl.addEventListener("drop", (e: DragEvent) => {
-					e.preventDefault();
-					settingEl.setCssProps({ "border-top": "" });
-					if (!e.dataTransfer) return;
-					const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
-					if (fromIndex !== index) {
-						const item = this.plugin.settings.images.splice(fromIndex, 1)[0];
-						if (item !== undefined) {
-							this.plugin.settings.images.splice(index, 0, item);
-						}
-						void this.plugin.saveSettings().then(() => {
-							this.display();
-							if (this.plugin.settings.enabled)
-								void this.plugin.startSlideshow();
-						});
-					}
-				});
-			});
+					void this.saveImagesAndRefresh(false);
+				}),
+		);
+		const rect = el.getBoundingClientRect();
+		menu.showAtPosition({ x: rect.left, y: rect.bottom });
+	}
 
-			// Vault内画像を追加
-			new Setting(containerEl)
-				.setName("Add image from vault")
-				.setDesc("Select images from your Obsidian vault (multiple selection)")
-				.addButton((button) =>
-					button.setButtonText("Browse vault").onClick(() => {
-						new MultiImageSelectModal(this.app, (files) => {
-							void (async () => {
-								for (const file of files) {
-									this.plugin.settings.images.push({
-										path: file.path,
-										enabled: true,
-									});
-								}
-								await this.plugin.saveSettings();
-								this.display();
-								if (this.plugin.settings.enabled)
-									void this.plugin.startSlideshow();
-							})();
-						}).open();
-					}),
-				);
-
-			// URL追加
-			new Setting(containerEl)
-				.setName("Add image URL")
-				.setDesc("Add an image URL from the internet")
-				.addButton((button) =>
-					button.setButtonText("Add").onClick(async () => {
-						this.plugin.settings.images.push({
-							path: "https://",
-							enabled: true,
-						});
-						await this.plugin.saveSettings();
-						this.display();
-					}),
-				);
-		}
-
-		// 透明度設定
-		new Setting(containerEl).setName("Transparency").setHeading();
-
-		new Setting(containerEl)
-			.setName("Pane opacity")
-			.setDesc("Opacity of page backgrounds (0–1)")
-			.addText((text) =>
-				text
-					.setPlaceholder("0.85")
-					.setValue(String(this.plugin.settings.paneOpacity))
-					.onChange(async (value) => {
-						const num = Number(value);
-						if (!Number.isNaN(num) && num >= 0 && num <= 1) {
-							this.plugin.settings.paneOpacity = num;
-							await this.plugin.saveSettings();
-							if (this.plugin.settings.enabled) this.plugin.applyTransparency();
-						}
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("UI opacity")
-			.setDesc("Opacity of UI backgrounds (0–1)")
-			.addText((text) =>
-				text
-					.setPlaceholder("0.85")
-					.setValue(String(this.plugin.settings.uiOpacity))
-					.onChange(async (value) => {
-						const num = Number(value);
-						if (!Number.isNaN(num) && num >= 0 && num <= 1) {
-							this.plugin.settings.uiOpacity = num;
-							await this.plugin.saveSettings();
-							if (this.plugin.settings.enabled) this.plugin.applyTransparency();
-						}
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Tab opacity")
-			.setDesc("Opacity of tab backgrounds (0–1)")
-			.addText((text) =>
-				text
-					.setPlaceholder("0.85")
-					.setValue(String(this.plugin.settings.tabOpacity))
-					.onChange(async (value) => {
-						const num = Number(value);
-						if (!Number.isNaN(num) && num >= 0 && num <= 1) {
-							this.plugin.settings.tabOpacity = num;
-							await this.plugin.saveSettings();
-							if (this.plugin.settings.enabled) this.plugin.applyTransparency();
-						}
-					}),
-			);
+	// 画像リストの構造が変わったときに保存して画面を組み立て直す
+	private async saveImagesAndRefresh(restart: boolean): Promise<void> {
+		await this.plugin.saveSettings();
+		this.update();
+		if (restart && this.plugin.settings.enabled)
+			void this.plugin.startSlideshow();
 	}
 }

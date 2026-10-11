@@ -1,8 +1,8 @@
 {
 	"id": "background-slideshow",
 	"name": "Background Slideshow",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
+	"version": "1.1.0",
+	"minAppVersion": "1.13.0",
 	"description": "Display background image slideshows with smooth fade transitions. Supports local vault images, web URLs, and random photos from Lorem Picsum.",
 	"author": "Cloud-Xero",
 	"authorUrl": "https://github.com/Cloud-Xero",
