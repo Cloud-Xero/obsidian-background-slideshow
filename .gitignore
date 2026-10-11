@@ -20,3 +20,8 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# test-vault: 動作確認用の Vault。土台（ノート・画像・プラグイン有効化の設定）だけを管理し、
+# ビルド成果物や Obsidian が書き換える画面状態・設定値は除外する
+test-vault/.obsidian/*
+!test-vault/.obsidian/community-plugins.json
