@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { TFile, type App, type PluginManifest } from "obsidian";
 import BackgroundSlideshowPlugin from "../src/main";
 import { loadImage } from "../src/image-loader";
-import type { ImageData } from "../src/settings";
+import { DEFAULT_SETTINGS, type ImageData } from "../src/settings";
 
 // 画像の読み込みはテストから完了・失敗を操作できるように差し替える
 vi.mock("../src/image-loader", () => ({ loadImage: vi.fn() }));
@@ -76,6 +76,42 @@ describe("loadSettings", () => {
 
 		expect(plugin.settings.images).toEqual(images);
 		expect(saveData).not.toHaveBeenCalled();
+	});
+
+	it("保存データが無いとき、画像リストはデフォルト値と別の配列になる", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue(null);
+
+		await plugin.loadSettings();
+		plugin.settings.images.push({ path: "a.png", enabled: true });
+
+		expect(plugin.settings.images).not.toBe(DEFAULT_SETTINGS.images);
+		expect(DEFAULT_SETTINGS.images).toEqual([]);
+	});
+
+	it("設定の画像を追加しても、デフォルト値の画像リストは空のままになる", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({});
+
+		await plugin.loadSettings();
+		plugin.settings.images.push({ path: "a.png", enabled: true });
+		plugin.settings.images.splice(0, 1);
+
+		expect(DEFAULT_SETTINGS.images).toEqual([]);
+	});
+
+	it("保存データの要素を書き換えても、読み込み元のデータは変わらない", async () => {
+		const plugin = createPlugin();
+		const saved = { images: [{ path: "a.png", enabled: true }] };
+		vi.spyOn(plugin, "loadData").mockResolvedValue(saved);
+
+		await plugin.loadSettings();
+		const first = plugin.settings.images[0];
+		if (!first) throw new Error("画像が読み込まれていません");
+		first.enabled = false;
+		first.path = "b.png";
+
+		expect(saved.images).toEqual([{ path: "a.png", enabled: true }]);
 	});
 });
 
