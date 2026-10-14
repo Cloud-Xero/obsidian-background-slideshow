@@ -518,4 +518,27 @@ describe("css-change によるテーマ追従", () => {
 
 		expect(apply).not.toHaveBeenCalled();
 	});
+
+	it("css-change で、変わった背景色を透過色に反映する", async () => {
+		const { plugin, handler } = await loadPlugin();
+		plugin.startSlideshow();
+		const vars = new Map<string, string>();
+		(
+			body.style as unknown as {
+				setProperty: (name: string, value: string) => void;
+			}
+		).setProperty = (name, value) => {
+			vars.set(name, value);
+		};
+		const opacity = plugin.settings.paneOpacity;
+		vi.stubGlobal("getComputedStyle", () => ({
+			backgroundColor: "rgb(200, 100, 50)",
+		}));
+
+		handler();
+
+		expect(vars.get("--background-transparent")).toBe(
+			`rgba(200, 100, 50, ${opacity})`,
+		);
+	});
 });
