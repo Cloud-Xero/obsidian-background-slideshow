@@ -1,10 +1,11 @@
-import { Plugin, TFile, normalizePath } from "obsidian";
+import { Plugin } from "obsidian";
 import {
 	type BackgroundSlideshowSettings,
 	DEFAULT_SETTINGS,
 	BackgroundSlideshowSettingTab,
 } from "./settings";
 import { loadImage } from "./image-loader";
+import { findVaultFile } from "./vault-file";
 
 export default class BackgroundSlideshowPlugin extends Plugin {
 	settings: BackgroundSlideshowSettings;
@@ -109,19 +110,15 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 				urls.push(imagePath);
 			} else {
 				try {
-					const normalizedPath = normalizePath(imagePath);
-					const file = this.app.vault.getAbstractFileByPath(normalizedPath);
-					if (file instanceof TFile) {
-						const resourcePath = this.app.vault.getResourcePath(file);
-						urls.push(resourcePath);
+					// Vault の外のファイルは読まない。見つからないものは警告して飛ばす
+					const file = findVaultFile(this.app, imagePath);
+					if (file) {
+						urls.push(this.app.vault.getResourcePath(file));
 					} else {
-						const adapter = this.app.vault.adapter as {
-							getFullPath?: (path: string) => string;
-						};
-						if (adapter.getFullPath) {
-							const fullPath = adapter.getFullPath(normalizedPath);
-							urls.push(`file://${fullPath}`);
-						}
+						console.warn(
+							"[BackgroundSlideshow] Image not found in vault, skipping:",
+							imagePath,
+						);
 					}
 				} catch (error) {
 					console.warn(
