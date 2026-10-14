@@ -113,6 +113,32 @@ describe("loadSettings", () => {
 
 		expect(saved.images).toEqual([{ path: "a.png", enabled: true }]);
 	});
+
+	it("保存データの画像リストに追加・削除しても、読み込み元の配列は変わらない", async () => {
+		const plugin = createPlugin();
+		const saved = { images: [{ path: "a.png", enabled: true }] };
+		vi.spyOn(plugin, "loadData").mockResolvedValue(saved);
+
+		await plugin.loadSettings();
+		plugin.settings.images.push({ path: "b.png", enabled: true });
+		plugin.settings.images.shift();
+
+		expect(plugin.settings.images).not.toBe(saved.images);
+		expect(saved.images).toEqual([{ path: "a.png", enabled: true }]);
+	});
+
+	it("別のインスタンスで読み込んだ設定は、画像リストを共有しない", async () => {
+		const first = createPlugin();
+		const second = createPlugin();
+		vi.spyOn(first, "loadData").mockResolvedValue(null);
+		vi.spyOn(second, "loadData").mockResolvedValue(null);
+
+		await first.loadSettings();
+		await second.loadSettings();
+		first.settings.images.push({ path: "a.png", enabled: true });
+
+		expect(second.settings.images).toEqual([]);
+	});
 });
 
 describe("getImageUrls", () => {
