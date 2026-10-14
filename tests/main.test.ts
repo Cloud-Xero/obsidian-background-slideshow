@@ -728,6 +728,16 @@ describe("透過用 CSS 変数の後片付け", () => {
 		}
 	});
 
+	it("停止しても、透過用以外の body の変数は消さない", async () => {
+		const plugin = await loadPlugin();
+		vars.set("--other-var", "keep");
+		plugin.startSlideshow();
+
+		plugin.stopSlideshow();
+
+		expect([...vars.keys()]).toEqual(["--other-var"]);
+	});
+
 	it("停止後に再び開始すると、変数が改めて設定される", async () => {
 		const plugin = await loadPlugin();
 		plugin.startSlideshow();
