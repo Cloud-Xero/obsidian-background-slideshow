@@ -27,6 +27,15 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 
 		this.addSettingTab(new BackgroundSlideshowSettingTab(this.app, this));
 
+		// テーマや CSS が変わったとき、透過を適用している間だけ新しい色で作り直す
+		this.registerEvent(
+			this.app.workspace.on("css-change", () => {
+				if (document.body.classList.contains("background-slideshow-active")) {
+					this.applyTransparency();
+				}
+			}),
+		);
+
 		this.app.workspace.onLayoutReady(() => {
 			if (this.settings.enabled) {
 				void this.startSlideshow();

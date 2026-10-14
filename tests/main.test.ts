@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { TFile, type App, type PluginManifest } from "obsidian";
 import BackgroundSlideshowPlugin from "../src/main";
 import { loadImage } from "../src/image-loader";
@@ -28,6 +28,10 @@ const createPlugin = (options: FakeVaultOptions = {}) => {
 			adapter: options.getFullPath
 				? { getFullPath: options.getFullPath }
 				: {},
+		},
+		workspace: {
+			on: vi.fn(() => ({})),
+			onLayoutReady: vi.fn(),
 		},
 	} as unknown as App;
 	return new BackgroundSlideshowPlugin(app, {} as PluginManifest);
@@ -415,5 +419,103 @@ describe("スライドの切り替え", () => {
 		await tick();
 
 		expect(loads).toHaveLength(0);
+	});
+});
+
+describe("css-change によるテーマ追従", () => {
+	const DURATION_SECONDS = 10;
+	let classes: Set<string>;
+	let body: FakeElement & {
+		classList: {
+			add: (cls: string) => void;
+			remove: (cls: string) => void;
+			contains: (cls: string) => boolean;
+		};
+		createDiv: () => FakeElement;
+	};
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		classes = new Set();
+		body = Object.assign(new FakeElement("body"), {
+			classList: {
+				add: (cls: string) => classes.add(cls),
+				remove: (cls: string) => classes.delete(cls),
+				contains: (cls: string) => classes.has(cls),
+			},
+			createDiv: () => new FakeElement("div"),
+		});
+		body.style = Object.assign(body.style, { setProperty: () => {} });
+		vi.stubGlobal("document", {
+			body,
+			createElement: (tag: string) => new FakeElement(tag),
+		});
+		vi.stubGlobal("window", globalThis);
+		vi.stubGlobal("getComputedStyle", () => ({
+			backgroundColor: "rgb(1, 2, 3)",
+		}));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	// onload() を実行し、登録された css-change のハンドラを取り出す
+	const loadPlugin = async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({
+			useUnsplashRandom: false,
+			images: [{ path: "https://example.com/a.jpg", enabled: true }],
+			duration: DURATION_SECONDS,
+		});
+		const registerEvent = vi.spyOn(plugin, "registerEvent");
+		await plugin.onload();
+		const { workspace } = plugin.app as unknown as {
+			workspace: { on: Mock };
+		};
+		const on = workspace.on;
+		const call = on.mock.calls.find(([name]) => name === "css-change");
+		const handler = call?.[1] as () => void;
+		return { plugin, registerEvent, handler, on };
+	};
+
+	it("css-change を登録し、戻り値を registerEvent に渡す", async () => {
+		const { on, registerEvent } = await loadPlugin();
+
+		expect(on).toHaveBeenCalledWith("css-change", expect.any(Function));
+		expect(registerEvent).toHaveBeenCalledWith(on.mock.results[0]?.value);
+	});
+
+	it("透過を適用している間は、css-change で透過色を作り直す", async () => {
+		const { plugin, handler } = await loadPlugin();
+		plugin.startSlideshow();
+		expect(classes.has("background-slideshow-active")).toBe(true);
+		const apply = vi.spyOn(plugin, "applyTransparency");
+
+		handler();
+
+		expect(apply).toHaveBeenCalledTimes(1);
+	});
+
+	it("透過を適用していないときは、css-change で何もしない", async () => {
+		const { plugin, handler } = await loadPlugin();
+		const apply = vi.spyOn(plugin, "applyTransparency");
+
+		handler();
+
+		expect(classes.has("background-slideshow-active")).toBe(false);
+		expect(apply).not.toHaveBeenCalled();
+	});
+
+	it("停止後の css-change では透過を再適用しない", async () => {
+		const { plugin, handler } = await loadPlugin();
+		plugin.startSlideshow();
+		plugin.stopSlideshow();
+		const apply = vi.spyOn(plugin, "applyTransparency");
+
+		handler();
+
+		expect(apply).not.toHaveBeenCalled();
 	});
 });
