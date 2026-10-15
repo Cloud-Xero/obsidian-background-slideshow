@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-background-slideshow",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Background image slideshow with smooth fade transitions for Obsidian",
 	"main": "main.js",
 	"type": "module",
