@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { App, Setting, SettingGroup } from "obsidian";
+import { TFile, type App, type Setting, type SettingGroup } from "obsidian";
 import type BackgroundSlideshowPlugin from "../src/main";
 import {
 	BackgroundSlideshowSettingTab,
@@ -74,6 +74,19 @@ class FakeSetting {
 	}
 }
 
+// Vault にあるファイルの一覧。ここに無いローカル画像は「Not found」になる
+const vaultPaths = ["images/red.png", "images/green.png", "images/blue.png"];
+const fakeApp = {
+	vault: {
+		getAbstractFileByPath: (path: string) => {
+			if (!vaultPaths.includes(path)) return null;
+			const file = new TFile();
+			file.path = path;
+			return file;
+		},
+	},
+} as unknown as App;
+
 const setup = (
 	images: ImageData[],
 	overrides: Partial<BackgroundSlideshowSettings> = {},
@@ -90,7 +103,7 @@ const setup = (
 		startSlideshow: vi.fn(),
 	};
 	const tab = new BackgroundSlideshowSettingTab(
-		{} as App,
+		fakeApp,
 		plugin as unknown as BackgroundSlideshowPlugin,
 	);
 
@@ -170,17 +183,52 @@ describe("画像パスの入力", () => {
 		expect(plugin.startSlideshow).not.toHaveBeenCalled();
 	});
 
-	it("入力に合わせて、行の見出しとプレースホルダーがすぐ変わる", () => {
+	it("プレースホルダーは入力に合わせてすぐ変わり、見出しは保存されるまで変わらない", async () => {
 		const { setting } = setup([{ path: "images/red.png", enabled: true }]);
 		expect(setting.name).toBe("✓ Local - red.png");
 		expect(setting.text.placeholder).toBe("path/to/image.png");
 
-		setting.text.input("images/green.png");
-		expect(setting.name).toBe("✓ Local - green.png");
-
 		setting.text.input("https://example.com/blue.jpg");
-		expect(setting.name).toBe("✓ URL - blue.jpg");
 		expect(setting.text.placeholder).toBe("https://...");
+		expect(setting.name).toBe("✓ Local - red.png");
+
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(setting.name).toBe("✓ URL - blue.jpg");
+	});
+});
+
+describe("画像の見出しの Not found 表示", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("Vault に無いローカル画像の見出しには Not found が付く", () => {
+		const { setting } = setup([{ path: "images/missing.png", enabled: true }]);
+
+		expect(setting.name).toBe("✓ Local - missing.png (Not found)");
+	});
+
+	it("Vault にあるローカル画像と URL の画像には Not found が付かない", () => {
+		const local = setup([{ path: "images/red.png", enabled: true }]).setting;
+		const url = setup([{ path: "https://example.com/blue.jpg", enabled: true }])
+			.setting;
+
+		expect(local.name).toBe("✓ Local - red.png");
+		expect(url.name).toBe("✓ URL - blue.jpg");
+	});
+
+	it("存在しないパスを直して保存すると、見出しの Not found が消える", async () => {
+		const { setting } = setup([{ path: "images/missing.png", enabled: true }]);
+
+		setting.text.input("images/red.png");
+		expect(setting.name).toBe("✓ Local - missing.png (Not found)");
+
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(setting.name).toBe("✓ Local - red.png");
 	});
 });
 

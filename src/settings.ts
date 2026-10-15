@@ -4,11 +4,13 @@ import {
 	Menu,
 	Modal,
 	PluginSettingTab,
+	type Setting,
 	type SettingDefinition,
 	type SettingDefinitionItem,
 	type TFile,
 } from "obsidian";
 import type BackgroundSlideshowPlugin from "./main";
+import { findVaultFile } from "./vault-file";
 
 export interface ImageData {
 	path: string;
@@ -148,13 +150,34 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 		super.hide();
 	}
 
+	// 画像の行ごとの見出し。見出しは保存のタイミングでだけ作り直すため、行の Setting を覚えておく
+	private imageRows: { index: number; setting: Setting }[] = [];
+
 	private async saveAndRestart(): Promise<void> {
 		await this.plugin.saveSettings();
+		this.refreshImageHeadings();
 		if (this.plugin.settings.enabled) void this.plugin.startSlideshow();
+	}
+
+	private refreshImageHeadings(): void {
+		for (const { index, setting } of this.imageRows) {
+			const entry = this.plugin.settings.images[index];
+			if (entry) setting.setName(this.imageHeading(entry.path, entry.enabled, index));
+		}
+	}
+
+	// 見出し: 有効/無効 + 種別 + ファイル名。Vault に無いローカル画像には「Not found」を付ける
+	private imageHeading(path: string, enabled: boolean, index: number): string {
+		const pathParts = path.split("/");
+		const displayName = pathParts[pathParts.length - 1] || `Image ${index + 1}`;
+		const isUrl = isUrlPath(path);
+		const notFound = !isUrl && !findVaultFile(this.app, path) ? " (Not found)" : "";
+		return `${enabled ? "✓" : "✗"} ${isUrl ? "URL" : "Local"} - ${displayName}${notFound}`;
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem<SettingKey>[] {
 		const settings = this.plugin.settings;
+		this.imageRows = [];
 
 		return [
 			{
@@ -311,21 +334,15 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 		imageData: ImageData,
 		index: number,
 	): SettingDefinition<SettingKey> {
-		// 見出しはその時点のパスと有効/無効から毎回作り直す
-		const nameFor = (path: string, enabled: boolean) => {
-			const pathParts = path.split("/");
-			const displayName =
-				pathParts[pathParts.length - 1] || `Image ${index + 1}`;
-			return `${enabled ? "✓" : "✗"} ${isUrlPath(path) ? "URL" : "Local"} - ${displayName}`;
-		};
 		const placeholderFor = (path: string) =>
 			isUrlPath(path) ? "https://..." : "path/to/image.png";
 
 		return {
-			name: nameFor(imageData.path, imageData.enabled),
+			name: this.imageHeading(imageData.path, imageData.enabled, index),
 			render: (setting) => {
+				this.imageRows.push({ index, setting });
 				setting
-					.setName(nameFor(imageData.path, imageData.enabled))
+					.setName(this.imageHeading(imageData.path, imageData.enabled, index))
 					.addText((text) =>
 						text
 							.setPlaceholder(placeholderFor(imageData.path))
@@ -334,7 +351,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 								const entry = this.plugin.settings.images[index];
 								if (!entry) return;
 								entry.path = value;
-								setting.setName(nameFor(entry.path, entry.enabled));
+								// 見出しは保存時に作り直す（入力中は変えない）
 								text.setPlaceholder(placeholderFor(entry.path));
 								this.saveAndRestartDebounced();
 							}),
@@ -349,7 +366,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 								const entry = this.plugin.settings.images[index];
 								if (entry) entry.enabled = value;
 								setting.setName(
-									nameFor(entry?.path ?? imageData.path, value),
+									this.imageHeading(entry?.path ?? imageData.path, value, index),
 								);
 								toggle.setTooltip(
 									value ? "Disable this image" : "Enable this image",

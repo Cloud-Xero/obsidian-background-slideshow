@@ -16,18 +16,20 @@ const makeFile = (path: string): TFile => {
 
 interface FakeVaultOptions {
 	files?: TFile[];
-	getFullPath?: (path: string) => string;
+	// このパスを調べると例外を投げる（想定外のエラーの再現用）
+	throwOn?: string[];
 }
 
 const createPlugin = (options: FakeVaultOptions = {}) => {
 	const files = new Map((options.files ?? []).map((f) => [f.path, f]));
+	const throwOn = options.throwOn ?? [];
 	const app = {
 		vault: {
-			getAbstractFileByPath: (path: string) => files.get(path) ?? null,
+			getAbstractFileByPath: (path: string) => {
+				if (throwOn.includes(path)) throw new Error("boom");
+				return files.get(path) ?? null;
+			},
 			getResourcePath: (file: TFile) => `app://local/${file.path}`,
-			adapter: options.getFullPath
-				? { getFullPath: options.getFullPath }
-				: {},
 		},
 		workspace: {
 			on: vi.fn(() => ({})),
@@ -199,35 +201,25 @@ describe("getImageUrls", () => {
 		expect(plugin.getImageUrls()).toEqual(["app://local/images/a.png"]);
 	});
 
-	it("Vault に無く、絶対パスも得られないファイルは含めない", async () => {
+	it("Vault に無いファイルは含めず、警告を出して飛ばす（file:// にはしない）", async () => {
 		const plugin = createPlugin();
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		await loadWith(plugin, {
 			useUnsplashRandom: false,
-			images: [{ path: "missing.png", enabled: true }],
+			images: [{ path: "/outside/missing.png", enabled: true }],
 		});
 
 		expect(plugin.getImageUrls()).toEqual([]);
-	});
-
-	it("Vault に無いファイルは、絶対パスが得られれば file:// URL にする", async () => {
-		const plugin = createPlugin({
-			getFullPath: (path) => `/vault/${path}`,
-		});
-		await loadWith(plugin, {
-			useUnsplashRandom: false,
-			images: [{ path: "outside.png", enabled: true }],
-		});
-
-		expect(plugin.getImageUrls()).toEqual(["file:///vault/outside.png"]);
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining("not found"),
+			"/outside/missing.png",
+		);
+		warn.mockRestore();
 	});
 
 	it("1件の読み込みで例外が出ても、その画像だけ除いて警告し、他は返す", async () => {
-		const plugin = createPlugin({
-			getFullPath: (path) => {
-				if (path === "broken.png") throw new Error("boom");
-				return `/vault/${path}`;
-			},
-		});
+		const plugin = createPlugin({ throwOn: ["broken.png"] });
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		await loadWith(plugin, {
 			useUnsplashRandom: false,
