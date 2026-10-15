@@ -6,6 +6,7 @@
 export class Component {
 	load(): void {}
 	unload(): void {}
+	registerEvent(_eventRef: unknown): void {}
 }
 
 export class Plugin extends Component {
