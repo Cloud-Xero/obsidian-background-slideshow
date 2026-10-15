@@ -482,6 +482,47 @@ describe("スライドの切り替え", () => {
 
 		expect(loads).toHaveLength(0);
 	});
+
+	it("停止しても、画面の部品を片付けるだけで URL の解放は行わない", async () => {
+		const revoke = vi.spyOn(URL, "revokeObjectURL");
+		const { plugin } = await start({
+			useUnsplashRandom: false,
+			images: urlImages,
+		});
+
+		const container = body.children[0]!;
+
+		plugin.stopSlideshow();
+
+		expect(container.removed).toBe(true);
+		expect(revoke).not.toHaveBeenCalled();
+		revoke.mockRestore();
+	});
+
+	it("停止と再起動を繰り返しても、古い背景は取り除かれ最新の1組だけが残り、URL の解放は行わない", async () => {
+		const revoke = vi.spyOn(URL, "revokeObjectURL");
+		const { plugin } = await start({
+			useUnsplashRandom: false,
+			images: urlImages,
+		});
+
+		const first = body.children[0]!;
+
+		plugin.startSlideshow();
+		const second = body.children[0]!;
+		plugin.stopSlideshow();
+		plugin.startSlideshow();
+		const third = body.children[0]!;
+
+		expect([first.removed, second.removed, third.removed]).toEqual([
+			true,
+			true,
+			false,
+		]);
+		expect(third.children).toHaveLength(2);
+		expect(revoke).not.toHaveBeenCalled();
+		revoke.mockRestore();
+	});
 });
 
 describe("css-change によるテーマ追従", () => {

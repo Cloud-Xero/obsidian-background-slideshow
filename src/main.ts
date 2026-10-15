@@ -20,7 +20,6 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 	// 停止・再起動のたびに増やし、古い読み込みの完了を無視するために使う
 	private generation = 0;
 	private timer: number | null = null;
-	private blobUrls: string[] = [];
 
 	async onload() {
 		await this.loadSettings();
@@ -147,7 +146,6 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		if (imageUrls.length === 0) return;
 
 		this.imageUrls = imageUrls;
-		this.blobUrls = imageUrls.filter((url) => url.startsWith("blob:"));
 
 		this.layers = [0, 1].map((index) => {
 			const layer = document.createElement("div");
@@ -223,11 +221,6 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		if (this.timer !== null) {
 			window.clearInterval(this.timer);
 			this.timer = null;
-		}
-
-		if (this.blobUrls.length > 0) {
-			this.blobUrls.forEach((url) => URL.revokeObjectURL(url));
-			this.blobUrls = [];
 		}
 
 		if (this.backgroundContainer) {
