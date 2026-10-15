@@ -4,13 +4,21 @@ import {
 	DEFAULT_SETTINGS,
 	BackgroundSlideshowSettingTab,
 } from "./settings";
+import { loadImage } from "./image-loader";
 
 export default class BackgroundSlideshowPlugin extends Plugin {
 	settings: BackgroundSlideshowSettings;
 
 	private backgroundContainer: HTMLElement | null = null;
+	// 「表示中」と「次」の2枚だけを持ち、切り替えのたびに入れ替える
 	private layers: HTMLElement[] = [];
-	private currentIndex = 0;
+	private activeLayerIndex = 0;
+	// 表示中の画像の番号（レイヤーとは別に管理する）
+	private imageUrls: string[] = [];
+	private currentImageIndex = 0;
+	private isLoading = false;
+	// 停止・再起動のたびに増やし、古い読み込みの完了を無視するために使う
+	private generation = 0;
 	private timer: number | null = null;
 	private blobUrls: string[] = [];
 
@@ -75,7 +83,8 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 
 	getImageUrls(): string[] {
 		if (this.settings.useUnsplashRandom) {
-			return Array.from({ length: 5 }, () => this.generatePicsumUrl());
+			// 起動時は1枚目の分だけ作る。以降は切り替えのたびに1件ずつ作る
+			return [this.generatePicsumUrl()];
 		}
 
 		const urls: string[] = [];
@@ -123,57 +132,80 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		const imageUrls = this.getImageUrls();
 		if (imageUrls.length === 0) return;
 
+		this.imageUrls = imageUrls;
 		this.blobUrls = imageUrls.filter((url) => url.startsWith("blob:"));
 
-		this.layers = [];
-		imageUrls.forEach((url, index) => {
+		this.layers = [0, 1].map((index) => {
 			const layer = document.createElement("div");
 			layer.className = "background-slideshow-layer";
 
 			const img = document.createElement("img");
-			img.src = url;
 			img.addClass("background-slideshow-image");
+			// 起動時に読み込むのは表示する1枚目だけ
+			if (index === 0 && imageUrls[0]) img.src = imageUrls[0];
 
 			layer.appendChild(img);
 			layer.style.opacity = index === 0 ? "1" : "0";
 			layer.style.transition = `opacity ${this.settings.fadeTime}s ease-in-out`;
-			if (this.backgroundContainer) {
-				this.backgroundContainer.appendChild(layer);
-			}
-			this.layers.push(layer);
+			this.backgroundContainer?.appendChild(layer);
+			return layer;
 		});
 
 		this.applyTransparency();
-		this.currentIndex = 0;
+		this.activeLayerIndex = 0;
+		this.currentImageIndex = 0;
 		this.startTimer();
 	}
 
 	private startTimer() {
 		this.timer = window.setInterval(() => {
-			this.nextSlide();
+			void this.nextSlide();
 		}, this.settings.duration * 1000);
 	}
 
-	private nextSlide() {
-		const totalImages = this.layers.length;
-		if (totalImages <= 1) return;
+	private async nextSlide() {
+		// 前回の読み込みがまだ終わっていなければ、この回は何もしない
+		if (this.isLoading) return;
 
-		const currentLayer = this.layers[this.currentIndex];
-		if (currentLayer) currentLayer.setCssProps({ opacity: "0" });
+		const useRandom = this.settings.useUnsplashRandom;
+		if (!useRandom && this.imageUrls.length <= 1) return;
 
-		this.currentIndex = (this.currentIndex + 1) % totalImages;
+		const nextImageIndex = useRandom
+			? 0
+			: (this.currentImageIndex + 1) % this.imageUrls.length;
+		const nextUrl = useRandom
+			? this.generatePicsumUrl()
+			: this.imageUrls[nextImageIndex];
+		const nextLayerIndex = 1 - this.activeLayerIndex;
+		const currentLayer = this.layers[this.activeLayerIndex];
+		const nextLayer = this.layers[nextLayerIndex];
+		const img = nextLayer?.querySelector("img");
+		if (!nextUrl || !currentLayer || !nextLayer || !img) return;
 
-		const nextLayer = this.layers[this.currentIndex];
-		if (this.settings.useUnsplashRandom && nextLayer) {
-			const newUrl = this.generatePicsumUrl();
-			const img = nextLayer.querySelector("img");
-			if (img) img.src = newUrl;
+		const generation = this.generation;
+		this.isLoading = true;
+		const loaded = await loadImage(img, nextUrl);
+
+		// 読み込み中に停止・再起動された場合は、古い処理から画面を触らない
+		if (generation !== this.generation) return;
+		this.isLoading = false;
+
+		if (!loaded) {
+			// 失敗したらこの回の切り替えは見送り、今の画像を表示し続ける
+			console.warn("[BackgroundSlideshow] Failed to load image:", nextUrl);
+			return;
 		}
 
-		if (nextLayer) nextLayer.setCssProps({ opacity: "1" });
+		currentLayer.setCssProps({ opacity: "0" });
+		nextLayer.setCssProps({ opacity: "1" });
+		this.activeLayerIndex = nextLayerIndex;
+		this.currentImageIndex = nextImageIndex;
 	}
 
 	stopSlideshow() {
+		this.generation++;
+		this.isLoading = false;
+
 		if (this.timer !== null) {
 			window.clearInterval(this.timer);
 			this.timer = null;
@@ -190,6 +222,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 		}
 
 		this.layers = [];
+		this.imageUrls = [];
 		this.removeTransparency();
 	}
 
