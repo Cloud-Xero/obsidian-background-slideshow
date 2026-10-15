@@ -283,7 +283,10 @@ describe("スライドの切り替え", () => {
 			classList: { add: () => {}, remove: () => {} },
 			createDiv: () => new FakeElement("div"),
 		});
-		body.style = Object.assign(body.style, { setProperty: () => {} });
+		body.style = Object.assign(body.style, {
+			setProperty: () => {},
+			removeProperty: () => {},
+		});
 		vi.stubGlobal("document", {
 			body,
 			createElement: (tag: string) => new FakeElement(tag),
@@ -540,7 +543,10 @@ describe("css-change によるテーマ追従", () => {
 			},
 			createDiv: () => new FakeElement("div"),
 		});
-		body.style = Object.assign(body.style, { setProperty: () => {} });
+		body.style = Object.assign(body.style, {
+			setProperty: () => {},
+			removeProperty: () => {},
+		});
 		vi.stubGlobal("document", {
 			body,
 			createElement: (tag: string) => new FakeElement(tag),
@@ -635,5 +641,113 @@ describe("css-change によるテーマ追従", () => {
 		expect(vars.get("--background-transparent")).toBe(
 			`rgba(200, 100, 50, ${opacity})`,
 		);
+	});
+});
+
+describe("透過用 CSS 変数の後片付け", () => {
+	const DURATION_SECONDS = 10;
+	const TRANSPARENCY_VARS = [
+		"--background-transparent",
+		"--background-partially-transparent",
+		"--background-tabs-transparent",
+	];
+	let vars: Map<string, string>;
+	let classes: Set<string>;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vars = new Map();
+		classes = new Set();
+		const body = Object.assign(new FakeElement("body"), {
+			classList: {
+				add: (cls: string) => classes.add(cls),
+				remove: (cls: string) => classes.delete(cls),
+				contains: (cls: string) => classes.has(cls),
+			},
+			createDiv: () => new FakeElement("div"),
+		});
+		body.style = Object.assign(body.style, {
+			setProperty: (name: string, value: string) => vars.set(name, value),
+			removeProperty: (name: string) => vars.delete(name),
+		});
+		vi.stubGlobal("document", {
+			body,
+			createElement: (tag: string) => new FakeElement(tag),
+		});
+		vi.stubGlobal("window", globalThis);
+		vi.stubGlobal("getComputedStyle", () => ({
+			backgroundColor: "rgb(1, 2, 3)",
+		}));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	const loadPlugin = async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({
+			useUnsplashRandom: false,
+			images: [{ path: "https://example.com/a.jpg", enabled: true }],
+			duration: DURATION_SECONDS,
+		});
+		await plugin.loadSettings();
+		return plugin;
+	};
+
+	it("スライドショーを開始すると3つの変数とクラスが設定される", async () => {
+		const plugin = await loadPlugin();
+
+		plugin.startSlideshow();
+
+		for (const name of TRANSPARENCY_VARS) {
+			expect(vars.has(name)).toBe(true);
+		}
+		expect(classes.has("background-slideshow-active")).toBe(true);
+	});
+
+	it("スライドショーを停止すると、3つの変数とクラスが body から消える", async () => {
+		const plugin = await loadPlugin();
+		plugin.startSlideshow();
+
+		plugin.stopSlideshow();
+
+		expect([...vars.keys()]).toEqual([]);
+		expect(classes.has("background-slideshow-active")).toBe(false);
+	});
+
+	it("プラグインを無効化（onunload）したときも、3つの変数が残らない", async () => {
+		const plugin = await loadPlugin();
+		plugin.startSlideshow();
+
+		plugin.onunload();
+
+		for (const name of TRANSPARENCY_VARS) {
+			expect(vars.has(name)).toBe(false);
+		}
+	});
+
+	it("停止しても、透過用以外の body の変数は消さない", async () => {
+		const plugin = await loadPlugin();
+		vars.set("--other-var", "keep");
+		plugin.startSlideshow();
+
+		plugin.stopSlideshow();
+
+		expect([...vars.keys()]).toEqual(["--other-var"]);
+	});
+
+	it("停止後に再び開始すると、変数が改めて設定される", async () => {
+		const plugin = await loadPlugin();
+		plugin.startSlideshow();
+		plugin.stopSlideshow();
+
+		plugin.startSlideshow();
+
+		for (const name of TRANSPARENCY_VARS) {
+			expect(vars.has(name)).toBe(true);
+		}
+		expect(classes.has("background-slideshow-active")).toBe(true);
 	});
 });

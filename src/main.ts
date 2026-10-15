@@ -7,6 +7,13 @@ import {
 import { loadImage } from "./image-loader";
 import { findVaultFile } from "./vault-file";
 
+// 透過の設定と削除で同じ名前を使うため、変数名はここにまとめる
+const TRANSPARENCY_VARS = [
+	"--background-transparent",
+	"--background-partially-transparent",
+	"--background-tabs-transparent",
+] as const;
+
 export default class BackgroundSlideshowPlugin extends Plugin {
 	settings: BackgroundSlideshowSettings;
 
@@ -250,16 +257,17 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 
 	applyTransparency() {
 		const rgb = this.getBackgroundRgb();
+		const [paneVar, uiVar, tabVar] = TRANSPARENCY_VARS;
 		document.body.style.setProperty(
-			"--background-transparent",
+			paneVar,
 			`rgba(${rgb}, ${this.settings.paneOpacity})`,
 		);
 		document.body.style.setProperty(
-			"--background-partially-transparent",
+			uiVar,
 			`rgba(${rgb}, ${this.settings.uiOpacity})`,
 		);
 		document.body.style.setProperty(
-			"--background-tabs-transparent",
+			tabVar,
 			`rgba(${rgb}, ${this.settings.tabOpacity})`,
 		);
 		document.body.classList.add("background-slideshow-active");
@@ -267,5 +275,8 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 
 	private removeTransparency() {
 		document.body.classList.remove("background-slideshow-active");
+		for (const name of TRANSPARENCY_VARS) {
+			document.body.style.removeProperty(name);
+		}
 	}
 }
