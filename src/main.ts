@@ -79,6 +79,11 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 			);
 			await this.saveSettings();
 		}
+
+		// デフォルト値や読み込んだデータのオブジェクトと配列・要素を共有しないよう複製する
+		this.settings.images = this.settings.images.map((imageData) => ({
+			...imageData,
+		}));
 	}
 
 	async saveSettings() {
