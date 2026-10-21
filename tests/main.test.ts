@@ -653,12 +653,13 @@ describe("透過用 CSS 変数の後片付け", () => {
 	];
 	let vars: Map<string, string>;
 	let classes: Set<string>;
+	let body: FakeElement;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vars = new Map();
 		classes = new Set();
-		const body = Object.assign(new FakeElement("body"), {
+		body = Object.assign(new FakeElement("body"), {
 			classList: {
 				add: (cls: string) => classes.add(cls),
 				remove: (cls: string) => classes.delete(cls),
@@ -749,5 +750,36 @@ describe("透過用 CSS 変数の後片付け", () => {
 			expect(vars.has(name)).toBe(true);
 		}
 		expect(classes.has("background-slideshow-active")).toBe(true);
+	});
+
+	it("画像が0枚のときは、コンテナを挿入せず透過用のクラスと変数も付けない", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({
+			useUnsplashRandom: false,
+			images: [],
+			duration: DURATION_SECONDS,
+		});
+		await plugin.loadSettings();
+
+		plugin.startSlideshow();
+
+		expect(body.children).toHaveLength(0);
+		expect(classes.has("background-slideshow-active")).toBe(false);
+		expect([...vars.keys()]).toEqual([]);
+	});
+
+	it("有効な画像が無いときも、コンテナを挿入しない", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({
+			useUnsplashRandom: false,
+			images: [{ path: "https://example.com/a.jpg", enabled: false }],
+			duration: DURATION_SECONDS,
+		});
+		await plugin.loadSettings();
+
+		plugin.startSlideshow();
+
+		expect(body.children).toHaveLength(0);
+		expect(classes.has("background-slideshow-active")).toBe(false);
 	});
 });
