@@ -76,26 +76,22 @@ export class Slideshow {
 		const imageUrls = this.getImageUrls();
 		if (imageUrls.length === 0) return;
 
-		const container = document.createElement("div");
-		container.className = "background-slideshow-container";
+		// 入れ物だけは画面の先頭に入れる必要があるため、作ってから prepend する
+		const container = createDiv({ cls: "background-slideshow-container" });
 		document.body.prepend(container);
 		this.backgroundContainer = container;
 
 		this.imageUrls = imageUrls;
 
 		this.layers = [0, 1].map((index) => {
-			const layer = document.createElement("div");
-			layer.className = "background-slideshow-layer";
+			const layer = container.createDiv({ cls: "background-slideshow-layer" });
 
-			const img = document.createElement("img");
-			img.addClass("background-slideshow-image");
+			const img = layer.createEl("img", { cls: "background-slideshow-image" });
 			// 起動時に読み込むのは表示する1枚目だけ
 			if (index === 0 && imageUrls[0]) img.src = imageUrls[0];
 
-			layer.appendChild(img);
 			layer.style.opacity = index === 0 ? "1" : "0";
 			layer.style.transition = `opacity ${this.settings.fadeTime}s ease-in-out`;
-			container.appendChild(layer);
 			return layer;
 		});
 

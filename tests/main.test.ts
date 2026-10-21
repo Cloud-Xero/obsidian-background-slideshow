@@ -290,6 +290,13 @@ class FakeElement {
 	prepend(child: FakeElement) {
 		this.children.unshift(child);
 	}
+	// Obsidian の createEl / createDiv と同じく、作った要素を親の末尾に追加する
+	createEl(tag: string, opts?: { cls?: string }): FakeElement {
+		return this.appendChild(newFakeElement(tag, opts));
+	}
+	createDiv(opts?: { cls?: string }): FakeElement {
+		return this.appendChild(newFakeElement("div", opts));
+	}
 	remove() {
 		this.removed = true;
 	}
@@ -302,6 +309,21 @@ class FakeElement {
 	querySelector(tag: string): FakeElement | null {
 		return this.children.find((c) => c.tagName === tag) ?? null;
 	}
+}
+
+// Obsidian のグローバル createEl / createDiv と同じく、親に付けずに要素を作る
+function newFakeElement(tag: string, opts?: { cls?: string }): FakeElement {
+	const el = new FakeElement(tag);
+	if (opts?.cls) el.className = opts.cls;
+	return el;
+}
+
+// document.body と、Obsidian のグローバル createDiv を差し替える
+function stubDom(body: FakeElement) {
+	vi.stubGlobal("document", { body });
+	vi.stubGlobal("createDiv", (opts?: { cls?: string }) =>
+		newFakeElement("div", opts),
+	);
 }
 
 interface Deferred {
@@ -327,10 +349,7 @@ describe("スライドの切り替え", () => {
 			setProperty: () => {},
 			removeProperty: () => {},
 		});
-		vi.stubGlobal("document", {
-			body,
-			createElement: (tag: string) => new FakeElement(tag),
-		});
+		stubDom(body);
 		vi.stubGlobal("window", globalThis);
 		vi.stubGlobal("getComputedStyle", () => ({
 			backgroundColor: "rgb(1, 2, 3)",
@@ -587,10 +606,7 @@ describe("css-change によるテーマ追従", () => {
 			setProperty: () => {},
 			removeProperty: () => {},
 		});
-		vi.stubGlobal("document", {
-			body,
-			createElement: (tag: string) => new FakeElement(tag),
-		});
+		stubDom(body);
 		vi.stubGlobal("window", globalThis);
 		vi.stubGlobal("getComputedStyle", () => ({
 			backgroundColor: "rgb(1, 2, 3)",
@@ -711,10 +727,7 @@ describe("透過用 CSS 変数の後片付け", () => {
 			setProperty: (name: string, value: string) => vars.set(name, value),
 			removeProperty: (name: string) => vars.delete(name),
 		});
-		vi.stubGlobal("document", {
-			body,
-			createElement: (tag: string) => new FakeElement(tag),
-		});
+		stubDom(body);
 		vi.stubGlobal("window", globalThis);
 		vi.stubGlobal("getComputedStyle", () => ({
 			backgroundColor: "rgb(1, 2, 3)",
