@@ -33,7 +33,7 @@ export class Slideshow {
 	}
 
 	getImageUrls(): string[] {
-		if (this.settings.useUnsplashRandom) {
+		if (this.settings.useRandomImages) {
 			// 起動時は1枚目の分だけ作る。以降は切り替えのたびに1件ずつ作る
 			return [generatePicsumUrl()];
 		}
@@ -115,7 +115,7 @@ export class Slideshow {
 		// 前回の読み込みがまだ終わっていなければ、この回は何もしない
 		if (this.isLoading) return;
 
-		const useRandom = this.settings.useUnsplashRandom;
+		const useRandom = this.settings.useRandomImages;
 		if (!useRandom && this.imageUrls.length <= 1) return;
 
 		const nextImageIndex = useRandom
