@@ -94,7 +94,7 @@ const setup = (
 ) => {
 	const settings: BackgroundSlideshowSettings = {
 		...DEFAULT_SETTINGS,
-		useUnsplashRandom: false,
+		useRandomImages: false,
 		...overrides,
 		images,
 	};

@@ -68,6 +68,46 @@ describe("loadSettings", () => {
 		expect(saveData).toHaveBeenCalledTimes(1);
 	});
 
+	it("旧キー useUnsplashRandom の値を useRandomImages に移し、旧キーを消して保存する", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({ useUnsplashRandom: false });
+		const saveData = vi.spyOn(plugin, "saveData").mockResolvedValue();
+
+		await plugin.loadSettings();
+
+		expect(plugin.settings.useRandomImages).toBe(false);
+		expect(plugin.settings).not.toHaveProperty("useUnsplashRandom");
+		expect(saveData).toHaveBeenCalledTimes(1);
+		const saved = saveData.mock.calls[0]?.[0] as Record<string, unknown>;
+		expect(saved.useRandomImages).toBe(false);
+		expect(saved).not.toHaveProperty("useUnsplashRandom");
+	});
+
+	it("新キーがすでにあるときは旧キーの値で上書きしない", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({
+			useUnsplashRandom: false,
+			useRandomImages: true,
+		});
+		vi.spyOn(plugin, "saveData").mockResolvedValue();
+
+		await plugin.loadSettings();
+
+		expect(plugin.settings.useRandomImages).toBe(true);
+		expect(plugin.settings).not.toHaveProperty("useUnsplashRandom");
+	});
+
+	it("旧キーが無いときは保存し直さない", async () => {
+		const plugin = createPlugin();
+		vi.spyOn(plugin, "loadData").mockResolvedValue({ useRandomImages: false });
+		const saveData = vi.spyOn(plugin, "saveData").mockResolvedValue();
+
+		await plugin.loadSettings();
+
+		expect(plugin.settings.useRandomImages).toBe(false);
+		expect(saveData).not.toHaveBeenCalled();
+	});
+
 	it("新形式の画像リストはそのまま使い、保存し直さない", async () => {
 		const plugin = createPlugin();
 		const images: ImageData[] = [{ path: "a.png", enabled: false }];
@@ -154,7 +194,7 @@ describe("getImageUrls", () => {
 
 	it("ランダム画像が有効なときは、起動時に表示する1件分の Lorem Picsum の URL だけを返す", async () => {
 		const plugin = createPlugin();
-		await loadWith(plugin, { useUnsplashRandom: true });
+		await loadWith(plugin, { useRandomImages: true });
 
 		const urls = plugin.getImageUrls();
 
@@ -165,7 +205,7 @@ describe("getImageUrls", () => {
 	it("無効にした画像は含めない", async () => {
 		const plugin = createPlugin();
 		await loadWith(plugin, {
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [
 				{ path: "https://example.com/on.jpg", enabled: true },
 				{ path: "https://example.com/off.jpg", enabled: false },
@@ -178,7 +218,7 @@ describe("getImageUrls", () => {
 	it("http:// と https:// の URL はそのまま返す", async () => {
 		const plugin = createPlugin();
 		await loadWith(plugin, {
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [
 				{ path: "http://example.com/a.jpg", enabled: true },
 				{ path: "https://example.com/b.jpg", enabled: true },
@@ -194,7 +234,7 @@ describe("getImageUrls", () => {
 	it("Vault 内のファイルはリソースパスに変換する", async () => {
 		const plugin = createPlugin({ files: [makeFile("images/a.png")] });
 		await loadWith(plugin, {
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [{ path: "images/a.png", enabled: true }],
 		});
 
@@ -205,7 +245,7 @@ describe("getImageUrls", () => {
 		const plugin = createPlugin();
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		await loadWith(plugin, {
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [{ path: "/outside/missing.png", enabled: true }],
 		});
 
@@ -222,7 +262,7 @@ describe("getImageUrls", () => {
 		const plugin = createPlugin({ throwOn: ["broken.png"] });
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		await loadWith(plugin, {
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [
 				{ path: "broken.png", enabled: true },
 				{ path: "https://example.com/ok.jpg", enabled: true },
@@ -349,7 +389,7 @@ describe("スライドの切り替え", () => {
 
 	it("登録画像が何枚あってもレイヤーは2枚だけ作り、起動時は1枚目だけ読み込む", async () => {
 		const { container } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -360,7 +400,7 @@ describe("スライドの切り替え", () => {
 
 	it("次の画像の読み込みが終わるまではフェードを始めず、終わってから切り替える", async () => {
 		const { container } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -374,7 +414,7 @@ describe("スライドの切り替え", () => {
 
 	it("レイヤーを入れ替えながら、登録順に画像を切り替えて先頭に戻る", async () => {
 		const { container } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -393,7 +433,7 @@ describe("スライドの切り替え", () => {
 	});
 
 	it("ランダム画像では、切り替えのたびに新しい URL を1件作って読み込む", async () => {
-		await start({ useUnsplashRandom: true });
+		await start({ useRandomImages: true });
 
 		await tick();
 		await settle(0, true);
@@ -408,7 +448,7 @@ describe("スライドの切り替え", () => {
 	it("読み込みに失敗したら切り替えを見送り、今の画像を表示し続ける", async () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const { container } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -425,7 +465,7 @@ describe("スライドの切り替え", () => {
 	});
 
 	it("読み込み中に次の切り替え時刻が来ても、その回は何もしない", async () => {
-		await start({ useUnsplashRandom: false, images: urlImages });
+		await start({ useRandomImages: false, images: urlImages });
 
 		await tick();
 		await tick();
@@ -435,7 +475,7 @@ describe("スライドの切り替え", () => {
 
 	it("停止後に読み込みが終わっても、画面を触らない", async () => {
 		const { plugin, container } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -448,7 +488,7 @@ describe("スライドの切り替え", () => {
 
 	it("再起動後に古い読み込みが終わっても、新しいスライドショーに影響しない", async () => {
 		const { plugin, container: oldContainer } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -469,7 +509,7 @@ describe("スライドの切り替え", () => {
 
 	it("画像が1枚だけなら切り替えない", async () => {
 		await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [{ path: "https://example.com/a.jpg", enabled: true }],
 		});
 
@@ -481,7 +521,7 @@ describe("スライドの切り替え", () => {
 	it("停止しても、画面の部品を片付けるだけで URL の解放は行わない", async () => {
 		const revoke = vi.spyOn(URL, "revokeObjectURL");
 		const { plugin } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -497,7 +537,7 @@ describe("スライドの切り替え", () => {
 	it("停止と再起動を繰り返しても、古い背景は取り除かれ最新の1組だけが残り、URL の解放は行わない", async () => {
 		const revoke = vi.spyOn(URL, "revokeObjectURL");
 		const { plugin } = await start({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: urlImages,
 		});
 
@@ -566,7 +606,7 @@ describe("css-change によるテーマ追従", () => {
 	const loadPlugin = async () => {
 		const plugin = createPlugin();
 		vi.spyOn(plugin, "loadData").mockResolvedValue({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [{ path: "https://example.com/a.jpg", enabled: true }],
 			duration: DURATION_SECONDS,
 		});
@@ -689,7 +729,7 @@ describe("透過用 CSS 変数の後片付け", () => {
 	const loadPlugin = async () => {
 		const plugin = createPlugin();
 		vi.spyOn(plugin, "loadData").mockResolvedValue({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [{ path: "https://example.com/a.jpg", enabled: true }],
 			duration: DURATION_SECONDS,
 		});
@@ -755,7 +795,7 @@ describe("透過用 CSS 変数の後片付け", () => {
 	it("画像が0枚のときは、コンテナを挿入せず透過用のクラスと変数も付けない", async () => {
 		const plugin = createPlugin();
 		vi.spyOn(plugin, "loadData").mockResolvedValue({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [],
 			duration: DURATION_SECONDS,
 		});
@@ -771,7 +811,7 @@ describe("透過用 CSS 変数の後片付け", () => {
 	it("有効な画像が無いときも、コンテナを挿入しない", async () => {
 		const plugin = createPlugin();
 		vi.spyOn(plugin, "loadData").mockResolvedValue({
-			useUnsplashRandom: false,
+			useRandomImages: false,
 			images: [{ path: "https://example.com/a.jpg", enabled: false }],
 			duration: DURATION_SECONDS,
 		});
