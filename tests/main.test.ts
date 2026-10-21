@@ -417,6 +417,25 @@ describe("スライドの切り替え", () => {
 		expect(opacities(container)).toEqual(["1", "0"]);
 	});
 
+	it("コンテナ・レイヤー・画像を所定の class と親子関係で body の先頭に作る", async () => {
+		const { container } = await start({
+			useRandomImages: false,
+			images: urlImages,
+		});
+
+		expect(container.tagName).toBe("div");
+		expect(container.className).toBe("background-slideshow-container");
+		expect(container.children.map((l) => l.className)).toEqual([
+			"background-slideshow-layer",
+			"background-slideshow-layer",
+		]);
+		for (const layer of container.children) {
+			expect(layer.children).toHaveLength(1);
+			expect(layer.children[0]!.tagName).toBe("img");
+			expect(layer.children[0]!.className).toBe("background-slideshow-image");
+		}
+	});
+
 	it("次の画像の読み込みが終わるまではフェードを始めず、終わってから切り替える", async () => {
 		const { container } = await start({
 			useRandomImages: false,
