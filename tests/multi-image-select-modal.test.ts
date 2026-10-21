@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import type { App, TFile } from "obsidian";
+import { TFile, type App } from "obsidian";
 import {
 	matchesImageFilter,
 	MultiImageSelectModal,
@@ -55,8 +55,12 @@ class FakeEl {
 	}
 }
 
-const file = (path: string, extension: string) =>
-	({ path, extension }) as unknown as TFile;
+const file = (path: string, extension: string): TFile => {
+	const f = new TFile();
+	f.path = path;
+	f.extension = extension;
+	return f;
+};
 
 function openModal(
 	files: TFile[],
