@@ -70,12 +70,12 @@ export class MultiImageSelectModal extends Modal {
 			.filter((file) => imageExtensions.includes(file.extension.toLowerCase()));
 
 		const listContainer = contentEl.createDiv({
-			cls: "multi-image-select-list",
+			cls: "background-slideshow-select-list",
 		});
 
 		imageFiles.forEach((file) => {
 			const itemEl = listContainer.createDiv({
-				cls: "multi-image-select-item",
+				cls: "background-slideshow-select-item",
 			});
 
 			const checkbox = itemEl.createEl("input", { type: "checkbox" });
@@ -92,7 +92,7 @@ export class MultiImageSelectModal extends Modal {
 		});
 
 		const buttonContainer = contentEl.createDiv({
-			cls: "modal-button-container",
+			cls: "background-slideshow-modal-buttons",
 		});
 
 		const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });

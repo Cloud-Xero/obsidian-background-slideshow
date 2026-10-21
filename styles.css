@@ -107,22 +107,22 @@ body.background-slideshow-active .empty-state {
 }
 
 /* Multi image select modal */
-.multi-image-select-list {
+.background-slideshow-select-list {
 	max-height: 400px;
 	overflow-y: auto;
 	margin-bottom: 16px;
 }
 
-.multi-image-select-item {
+.background-slideshow-select-item {
 	padding: 8px;
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.multi-image-select-item input[type="checkbox"] {
+.background-slideshow-select-item input[type="checkbox"] {
 	margin-right: 8px;
 }
 
-.modal-button-container {
+.background-slideshow-modal-buttons {
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
