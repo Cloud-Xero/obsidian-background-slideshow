@@ -94,7 +94,7 @@ const setup = (
 ) => {
 	const settings: BackgroundSlideshowSettings = {
 		...DEFAULT_SETTINGS,
-		useUnsplashRandom: false,
+		useRandomImages: false,
 		...overrides,
 		images,
 	};
@@ -336,5 +336,59 @@ describe("Vault から選んだ画像の追加（appendNewImages）", () => {
 
 		expect(added).toBe(0);
 		expect(images).toHaveLength(1);
+	});
+});
+
+describe("ランダム画像の設定（useRandomImages）", () => {
+	// refreshDomState は Obsidian 本体の機能なので、モックには無い。呼ばれたかだけ見る
+	const setupTab = (enabled: boolean, useRandomImages: boolean) => {
+		const { plugin, tab } = setup([{ path: "a.png", enabled: true }], {
+			enabled,
+			useRandomImages,
+		});
+		const refreshDomState = vi.fn();
+		(tab as unknown as { refreshDomState: () => void }).refreshDomState =
+			refreshDomState;
+		return { plugin, tab, refreshDomState };
+	};
+
+	const findImageList = (tab: BackgroundSlideshowSettingTab) =>
+		tab
+			.getSettingDefinitions()
+			.find((item) => "type" in item && item.type === "list");
+
+	it("オフなら画像リストを表示し、オンなら隠す", () => {
+		const { plugin, tab } = setupTab(true, false);
+		const visible = () => {
+			const list = findImageList(tab);
+			const fn = list && "visible" in list ? list.visible : undefined;
+			return typeof fn === "function" ? fn() : null;
+		};
+
+		expect(visible()).toBe(true);
+
+		plugin.settings.useRandomImages = true;
+		expect(visible()).toBe(false);
+	});
+
+	it("切り替えると保存し、画面を更新して、スライドショーを作り直す", async () => {
+		const { plugin, tab, refreshDomState } = setupTab(true, false);
+
+		await tab.setControlValue("useRandomImages", true);
+
+		expect(plugin.settings.useRandomImages).toBe(true);
+		expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+		expect(refreshDomState).toHaveBeenCalledTimes(1);
+		expect(plugin.startSlideshow).toHaveBeenCalledTimes(1);
+	});
+
+	it("スライドショーが無効なら、保存と画面更新だけして作り直さない", async () => {
+		const { plugin, tab, refreshDomState } = setupTab(false, false);
+
+		await tab.setControlValue("useRandomImages", true);
+
+		expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+		expect(refreshDomState).toHaveBeenCalledTimes(1);
+		expect(plugin.startSlideshow).not.toHaveBeenCalled();
 	});
 });

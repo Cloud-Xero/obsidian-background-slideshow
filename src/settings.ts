@@ -24,7 +24,7 @@ export interface BackgroundSlideshowSettings {
 	paneOpacity: number;
 	uiOpacity: number;
 	tabOpacity: number;
-	useUnsplashRandom: boolean;
+	useRandomImages: boolean;
 }
 
 export const DEFAULT_SETTINGS: BackgroundSlideshowSettings = {
@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS: BackgroundSlideshowSettings = {
 	paneOpacity: 0.85,
 	uiOpacity: 0.85,
 	tabOpacity: 0.85,
-	useUnsplashRandom: true,
+	useRandomImages: true,
 };
 
 // 選んだパスのうち、まだ登録されていないものだけを有効な画像として足す。足した件数を返す
@@ -154,7 +154,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 					{
 						name: "Use random images",
 						desc: "Use random photos from Lorem Picsum (picsum.photos) instead of manual image paths",
-						control: { type: "toggle", key: "useUnsplashRandom" },
+						control: { type: "toggle", key: "useRandomImages" },
 					},
 				],
 			},
@@ -162,7 +162,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 				type: "list",
 				heading: "Images",
 				emptyState: "No images added yet.",
-				visible: () => !this.plugin.settings.useUnsplashRandom,
+				visible: () => !this.plugin.settings.useRandomImages,
 				items: settings.images.map((imageData, index) =>
 					this.imageDefinition(imageData, index),
 				),
@@ -249,7 +249,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 					this.plugin.stopSlideshow();
 				}
 				break;
-			case "useUnsplashRandom":
+			case "useRandomImages":
 				// 画像リストの表示・非表示を切り替える
 				this.refreshDomState();
 				if (settings.enabled) this.plugin.startSlideshow();

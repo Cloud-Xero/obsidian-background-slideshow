@@ -56,6 +56,16 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 			(await this.loadData()) as Partial<BackgroundSlideshowSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 
+		// 既存設定のマイグレーション（旧キー useUnsplashRandom → useRandomImages）
+		if (savedData && "useUnsplashRandom" in savedData) {
+			if (!("useRandomImages" in savedData)) {
+				this.settings.useRandomImages = Boolean(savedData.useUnsplashRandom);
+			}
+			delete (this.settings as { useUnsplashRandom?: boolean })
+				.useUnsplashRandom;
+			await this.saveSettings();
+		}
+
 		// 既存設定のマイグレーション（文字列配列 → オブジェクト配列）
 		if (
 			this.settings.images.length > 0 &&
