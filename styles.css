@@ -107,6 +107,11 @@ body.background-slideshow-active .empty-state {
 }
 
 /* Multi image select modal */
+.background-slideshow-select-search {
+	width: 100%;
+	margin-bottom: 8px;
+}
+
 .background-slideshow-select-list {
 	max-height: 400px;
 	overflow-y: auto;
@@ -120,6 +125,16 @@ body.background-slideshow-active .empty-state {
 
 .background-slideshow-select-item input[type="checkbox"] {
 	margin-right: 8px;
+}
+
+.background-slideshow-select-item.is-registered {
+	color: var(--text-muted);
+}
+
+.background-slideshow-select-registered {
+	margin-left: 8px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
 }
 
 .background-slideshow-modal-buttons {
