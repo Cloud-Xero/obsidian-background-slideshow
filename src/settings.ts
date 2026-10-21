@@ -210,7 +210,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 	private async saveAndRestart(): Promise<void> {
 		await this.plugin.saveSettings();
 		this.refreshImageHeadings();
-		if (this.plugin.settings.enabled) void this.plugin.startSlideshow();
+		if (this.plugin.settings.enabled) this.plugin.startSlideshow();
 	}
 
 	private refreshImageHeadings(): void {
@@ -360,7 +360,7 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 		switch (key) {
 			case "enabled":
 				if (settings.enabled) {
-					void this.plugin.startSlideshow();
+					this.plugin.startSlideshow();
 				} else {
 					this.plugin.stopSlideshow();
 				}
@@ -368,11 +368,11 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 			case "useUnsplashRandom":
 				// 画像リストの表示・非表示を切り替える
 				this.refreshDomState();
-				if (settings.enabled) void this.plugin.startSlideshow();
+				if (settings.enabled) this.plugin.startSlideshow();
 				break;
 			case "duration":
 			case "fadeTime":
-				if (settings.enabled) void this.plugin.startSlideshow();
+				if (settings.enabled) this.plugin.startSlideshow();
 				break;
 			case "paneOpacity":
 			case "uiOpacity":
@@ -477,6 +477,6 @@ export class BackgroundSlideshowSettingTab extends PluginSettingTab {
 		await this.plugin.saveSettings();
 		this.update();
 		if (restart && this.plugin.settings.enabled)
-			void this.plugin.startSlideshow();
+			this.plugin.startSlideshow();
 	}
 }
