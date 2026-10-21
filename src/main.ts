@@ -45,7 +45,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(() => {
 			if (this.settings.enabled) {
-				void this.startSlideshow();
+				this.startSlideshow();
 			}
 		});
 
@@ -56,7 +56,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 				this.settings.enabled = !this.settings.enabled;
 				void this.saveSettings();
 				if (this.settings.enabled) {
-					void this.startSlideshow();
+					this.startSlideshow();
 				} else {
 					this.stopSlideshow();
 				}
@@ -142,12 +142,14 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 	startSlideshow() {
 		this.stopSlideshow();
 
-		this.backgroundContainer = document.createElement("div");
-		this.backgroundContainer.className = "background-slideshow-container";
-		document.body.prepend(this.backgroundContainer);
-
+		// 画像が0枚なら、空のコンテナを挿入せずに終える
 		const imageUrls = this.getImageUrls();
 		if (imageUrls.length === 0) return;
+
+		const container = document.createElement("div");
+		container.className = "background-slideshow-container";
+		document.body.prepend(container);
+		this.backgroundContainer = container;
 
 		this.imageUrls = imageUrls;
 
@@ -163,7 +165,7 @@ export default class BackgroundSlideshowPlugin extends Plugin {
 			layer.appendChild(img);
 			layer.style.opacity = index === 0 ? "1" : "0";
 			layer.style.transition = `opacity ${this.settings.fadeTime}s ease-in-out`;
-			this.backgroundContainer?.appendChild(layer);
+			container.appendChild(layer);
 			return layer;
 		});
 
