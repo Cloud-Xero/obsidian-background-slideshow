@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TFile, type App, type Setting, type SettingGroup } from "obsidian";
 import type BackgroundSlideshowPlugin from "../src/main";
 import {
+	appendNewImages,
 	BackgroundSlideshowSettingTab,
 	DEFAULT_SETTINGS,
 	type BackgroundSlideshowSettings,
@@ -302,5 +303,38 @@ describe("画像の有効・無効のトグル", () => {
 			enabled: false,
 		});
 		expect(setting.name).toBe("✗ Local - red.png");
+	});
+});
+
+describe("Vault から選んだ画像の追加（appendNewImages）", () => {
+	it("登録済みのパスは足さず、新しいパスだけを有効な状態で足す", () => {
+		const images: ImageData[] = [{ path: "images/red.png", enabled: false }];
+
+		const added = appendNewImages(images, ["images/red.png", "images/blue.png"]);
+
+		expect(added).toBe(1);
+		expect(images).toEqual([
+			{ path: "images/red.png", enabled: false },
+			{ path: "images/blue.png", enabled: true },
+		]);
+	});
+
+	it("同じパスを一度に複数渡しても1件だけ足す", () => {
+		const images: ImageData[] = [];
+
+		const added = appendNewImages(images, ["a.png", "a.png", "b.png"]);
+
+		expect(added).toBe(2);
+		expect(images.map((image) => image.path)).toEqual(["a.png", "b.png"]);
+	});
+
+	it("同じ画像をもう一度追加しても、画像リストに重複が増えない", () => {
+		const images: ImageData[] = [];
+
+		appendNewImages(images, ["a.png"]);
+		const added = appendNewImages(images, ["a.png"]);
+
+		expect(added).toBe(0);
+		expect(images).toHaveLength(1);
 	});
 });
