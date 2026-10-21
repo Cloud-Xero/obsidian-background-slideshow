@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { App, TFile } from "obsidian";
-import { matchesImageFilter, MultiImageSelectModal } from "../src/settings";
+import {
+	matchesImageFilter,
+	MultiImageSelectModal,
+} from "../src/ui/image-select-modal";
 
 // onOpen() が使う分だけを持つ、DOM 要素の簡易版
 class FakeEl {
