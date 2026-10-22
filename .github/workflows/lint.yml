@@ -12,8 +12,9 @@ jobs:
 
         strategy:
             matrix:
-                # vitest 5 は Node 22.12 以上が必要。Node 20 はサポート終了（2026-04-30）のため外した
-                node-version: [22.x, 24.x]
+                # 手元の開発環境とリリースのビルドに合わせて 24 系のみで確かめる。
+                # Node 22 はサポート終了（2027-04-30）が近いため外した
+                node-version: [24.x]
                 # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
         steps:
@@ -22,6 +23,8 @@ jobs:
               uses: actions/setup-node@v7
               with:
                   node-version: ${{ matrix.node-version }}
+                  # runner のキャッシュにある古い版ではなく、範囲内の最新版（セキュリティ修正版）を使う
+                  check-latest: true
                   cache: "npm"
             - run: npm ci
             - run: npm run build --if-present
