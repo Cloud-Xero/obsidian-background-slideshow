@@ -63,7 +63,9 @@ jobs:
             - uses: actions/setup-node@v7
               if: steps.check.outputs.exists == 'false'
               with:
-                  node-version: 22.x
+                  node-version: 24.x
+                  # runner のキャッシュにある古い版ではなく、範囲内の最新版（セキュリティ修正版）を使う
+                  check-latest: true
                   cache: "npm"
 
             - name: Build
