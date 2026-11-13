@@ -30,6 +30,37 @@ const listedFiles = (text: string): string[] =>
 		.map((l) => l.trim())
 		.filter(Boolean) ?? [];
 
+describe("release.yml のリリースノート", () => {
+	const notes = steps[indexOfStep("Generate release notes")];
+	const checkout = steps.find((s) => /uses:\s*actions\/checkout@/.test(s.text));
+
+	it("前回のタグを見つけるため、checkout でタグと履歴をすべて取得する", () => {
+		expect(checkout?.text).toMatch(/^\s+fetch-depth:\s*0\s*$/m);
+	});
+
+	it("英語のコミットメッセージから release-notes.md を作る", () => {
+		expect(notes?.text).toMatch(
+			/node release-notes\.mjs "\$VERSION" > release-notes\.md/,
+		);
+	});
+
+	it("Create release は release-notes.md を使い、PR タイトルからの自動生成は使わない", () => {
+		expect(release?.text).toMatch(/--notes-file release-notes\.md/);
+		expect(release?.text).not.toMatch(/--generate-notes/);
+	});
+
+	it("Create release の前に、同じ条件で実行される", () => {
+		const cond = /^\s+if:\s*(.+)$/m;
+		expect(indexOfStep("Generate release notes")).toBeGreaterThanOrEqual(0);
+		expect(indexOfStep("Generate release notes")).toBeLessThan(
+			indexOfStep("Create release"),
+		);
+		expect(cond.exec(notes?.text ?? "")?.[1]).toBe(
+			cond.exec(release?.text ?? "")?.[1],
+		);
+	});
+});
+
 describe("release.yml の artifact attestation", () => {
 	it("attestation に必要な権限（id-token / attestations / artifact-metadata: write）を付与している", () => {
 		expect(permissions).toMatch(/^\s+id-token:\s*write\s*$/m);

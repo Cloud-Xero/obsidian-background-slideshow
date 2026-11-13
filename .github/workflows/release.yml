@@ -24,6 +24,9 @@ jobs:
 
         steps:
             - uses: actions/checkout@v7
+              with:
+                  # リリースノートを前回のタグからのコミットで作るため、タグと履歴をすべて取得する
+                  fetch-depth: 0
 
             - name: Read version
               id: version
@@ -87,6 +90,15 @@ jobs:
                       manifest.json
                       styles.css
 
+            - name: Generate release notes
+              if: steps.check.outputs.exists == 'false'
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: |
+                  # PR タイトル（日本語）ではなく、英語のコミットメッセージからリリースノートを作る
+                  node release-notes.mjs "$VERSION" > release-notes.md
+                  cat release-notes.md
+
             - name: Create release
               if: steps.check.outputs.exists == 'false'
               env:
@@ -96,4 +108,4 @@ jobs:
                   gh release create "$VERSION" main.js manifest.json styles.css \
                       --title "$VERSION" \
                       --target "$GITHUB_SHA" \
-                      --generate-notes
+                      --notes-file release-notes.md
