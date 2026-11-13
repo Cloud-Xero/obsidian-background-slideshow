@@ -35,6 +35,19 @@ An [Obsidian](https://obsidian.md) plugin that displays background image slidesh
 
 - **Toggle background slideshow**: Enable or disable the slideshow
 
+## Network use and privacy
+
+This plugin loads background images over the network in the following cases:
+
+- **Use random images** is On (the default): random photos are loaded from [Lorem Picsum](https://picsum.photos) (`picsum.photos`). The images may be delivered from other hosts that Lorem Picsum uses.
+- **Use random images** is Off and you add an image URL: the image is loaded from that URL.
+
+Images from your vault are loaded locally and are never sent anywhere. The plugin does not send telemetry or analytics.
+
+### Vault file list
+
+**Add image from vault** reads the list of all files in your vault when you open its dialog. The list is used only to show image files as choices. It is not saved or sent anywhere, and it is discarded when the dialog closes. The only things saved in the plugin settings are the paths of the images you add and whether each image is enabled.
+
 ## Installation
 
 ### Community Plugins (Recommended)
