@@ -19,6 +19,7 @@ describe("transparency", () => {
 	let classes: Set<string>;
 	let vars: Map<string, string>;
 	let probeRemoved: boolean;
+	let probeStyles: Record<string, string>;
 
 	const stubColor = (backgroundColor: string) => {
 		vi.stubGlobal("getComputedStyle", () => ({ backgroundColor }));
@@ -28,6 +29,7 @@ describe("transparency", () => {
 		classes = new Set();
 		vars = new Map();
 		probeRemoved = false;
+		probeStyles = {};
 		vi.stubGlobal("document", {
 			body: {
 				classList: {
@@ -40,6 +42,9 @@ describe("transparency", () => {
 					removeProperty: (n: string) => vars.delete(n),
 				},
 				createDiv: () => ({
+					setCssStyles: (styles: Record<string, string>) => {
+						Object.assign(probeStyles, styles);
+					},
 					remove: () => {
 						probeRemoved = true;
 					},
@@ -91,6 +96,25 @@ describe("transparency", () => {
 		expect(vars.get("--background-transparent")).toBe(
 			"rgba(30, 30, 30, 0.1)",
 		);
+	});
+
+	it("背景色が透明（アルファ 0）のときは黒ではなく既定色 30, 30, 30 を使う", () => {
+		stubColor("rgba(0, 0, 0, 0)");
+
+		applyTransparency(settings);
+
+		expect(vars.get("--background-transparent")).toBe(
+			"rgba(30, 30, 30, 0.1)",
+		);
+	});
+
+	it("色取得用の一時要素に、非表示と --background-primary の背景色を直接指定する", () => {
+		applyTransparency(settings);
+
+		expect(probeStyles).toEqual({
+			display: "none",
+			backgroundColor: "var(--background-primary)",
+		});
 	});
 
 	it("解除すると有効フラグと3つの CSS 変数がすべて消える", () => {
