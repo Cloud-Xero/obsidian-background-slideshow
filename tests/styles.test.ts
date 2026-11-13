@@ -10,7 +10,7 @@ describe("styles.css", () => {
 
 	// コメントを除いたルール（セレクタ + 本体）の一覧
 	const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
-		(m) => ({ selector: m[1].trim(), body: m[2] }),
+		(m) => ({ selector: (m[1] ?? "").trim(), body: m[2] ?? "" }),
 	);
 	const transparencyRules = rules.filter((r) =>
 		/background-color:\s*(transparent|var\(--background-(partially-|tabs-)?transparent\))\s*;/.test(
