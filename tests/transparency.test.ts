@@ -108,6 +108,14 @@ describe("transparency", () => {
 		);
 	});
 
+	it("アルファが 0 でなければ（0.01 など）透明扱いにせず、取得した色をそのまま使う", () => {
+		stubColor("rgba(0, 0, 0, 0.01)");
+
+		applyTransparency(settings);
+
+		expect(vars.get("--background-transparent")).toBe("rgba(0, 0, 0, 0.1)");
+	});
+
 	it("色取得用の一時要素に、非表示と --background-primary の背景色を直接指定する", () => {
 		applyTransparency(settings);
 
