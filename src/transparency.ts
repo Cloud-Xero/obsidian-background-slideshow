@@ -14,22 +14,34 @@ export function isTransparencyActive(): boolean {
 	return document.body.classList.contains(TRANSPARENCY_ACTIVE_CLASS);
 }
 
+const FALLBACK_RGB = "30, 30, 30";
+
 function getBackgroundRgb(): string {
-	// CSS クラスを使って一時要素を作成し、ブラウザに --background-primary を
-	// 解決させた rgb() 値を取得する。
-	const el = document.body.createDiv({
-		cls: "background-slideshow-color-probe",
+	// 一時要素の背景色に --background-primary を直接指定し、ブラウザに解決させた
+	// rgb() 値を取得する。styles.css に頼ると、有効化の直後（styles.css の読み込み前）は
+	// 背景色が透明になってしまうため、要素に直接指定している。
+	const el = document.body.createDiv();
+	el.setCssStyles({
+		display: "none",
+		backgroundColor: "var(--background-primary)",
 	});
 	const color = getComputedStyle(el).backgroundColor;
 	el.remove();
 
 	// ブラウザは常に "rgb(r, g, b)" または "rgba(r, g, b, a)" で返す
-	const match = color.match(/^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/);
-	if (match) {
-		return `${match[1]}, ${match[2]}, ${match[3]}`;
+	const match = color.match(
+		/^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/,
+	);
+	if (!match) {
+		return FALLBACK_RGB;
 	}
 
-	return "30, 30, 30";
+	// 透明（アルファ 0）は色が取れなかったとみなし、黒として使わない
+	if (match[4] !== undefined && Number(match[4]) === 0) {
+		return FALLBACK_RGB;
+	}
+
+	return `${match[1]}, ${match[2]}, ${match[3]}`;
 }
 
 export function applyTransparency(settings: BackgroundSlideshowSettings): void {

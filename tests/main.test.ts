@@ -306,6 +306,9 @@ class FakeElement {
 	setCssProps(props: Record<string, string>) {
 		Object.assign(this.style, props);
 	}
+	setCssStyles(styles: Record<string, string>) {
+		Object.assign(this.style, styles);
+	}
 	querySelector(tag: string): FakeElement | null {
 		return this.children.find((c) => c.tagName === tag) ?? null;
 	}
