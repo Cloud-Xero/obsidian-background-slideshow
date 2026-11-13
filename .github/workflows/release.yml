@@ -13,6 +13,10 @@ concurrency:
 
 permissions:
     contents: write
+    # artifact attestation（成果物がこのリポジトリの GitHub Actions でビルドされた証明）に必要
+    id-token: write
+    attestations: write
+    artifact-metadata: write
 
 jobs:
     release:
@@ -73,6 +77,15 @@ jobs:
               run: |
                   npm ci
                   npm run build
+
+            - name: Attest release assets
+              if: steps.check.outputs.exists == 'false'
+              uses: actions/attest@v4
+              with:
+                  subject-path: |
+                      main.js
+                      manifest.json
+                      styles.css
 
             - name: Create release
               if: steps.check.outputs.exists == 'false'
