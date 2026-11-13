@@ -30,9 +30,16 @@ body.background-slideshow-active {
 	--canvas-background: transparent;
 }
 
+/*
+ * 以下の背景透明化ルール（5件）は、先頭のクラスを3回重ねて詳細度を上げている。
+ * 1回だけでは、Obsidian 本体のスタック表示のタブヘッダーと、
+ * タイトルバー右端のボタン領域（.titlebar-button-container.mod-right）の指定に負ける。
+ * 5件とも同じだけ強くしているので、プラグイン内での優先順は変わらない。
+ */
+
 /* メインコンテナを透明化 */
-body.background-slideshow-active .horizontal-main-container {
-	background-color: transparent !important;
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .horizontal-main-container {
+	background-color: transparent;
 }
 
 /* Obsidianのメインコンテンツを背景画像の上に表示 */
@@ -42,30 +49,30 @@ body.background-slideshow-active .app-container {
 }
 
 /* Make panes transparent */
-body.background-slideshow-active .workspace-tab-container::-webkit-scrollbar-track,
-body.background-slideshow-active :is(.mod-root .view-content, .view-header) {
-	background-color: var(--background-transparent) !important;
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-tab-container::-webkit-scrollbar-track,
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active :is(.mod-root .view-content, .view-header) {
+	background-color: var(--background-transparent);
 }
 
 /* Make workspace UI elements transparent */
-body.background-slideshow-active :is(
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active :is(
 	.mod-root .workspace-tab-header-container,
 	.workspace-ribbon,
 	.workspace-split,
 	.graph-controls
 ),
-body.background-slideshow-active .workspace-ribbon::before {
-	background-color: var(--background-partially-transparent) !important;
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-ribbon::before {
+	background-color: var(--background-partially-transparent);
 }
 
 /* Make stacked tab headers transparent */
-body.background-slideshow-active .workspace-tab-container .workspace-tab-header:not(.mod-active),
-body.background-slideshow-active .workspace-tab-container .workspace-tab-header.mod-active {
-	background-color: var(--background-tabs-transparent) !important;
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-tab-container .workspace-tab-header:not(.mod-active),
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-tab-container .workspace-tab-header.mod-active {
+	background-color: var(--background-tabs-transparent);
 }
 
 /* Remove other backgrounds */
-body.background-slideshow-active :is(
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active :is(
 	.titlebar-button-container,
 	.mod-vertical .workspace-tab-header,
 	.document-search-container,
@@ -75,10 +82,10 @@ body.background-slideshow-active :is(
 	.pdf-container,
 	.pdf-toolbar
 ),
-body.background-slideshow-active .workspace-split:not(.mod-root, .mod-horizontal) .workspace-tab-header-container,
-body.background-slideshow-active .workspace-split:not(.mod-left-split, .mod-right-split),
-body.background-slideshow-active .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
-	background-color: transparent !important;
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-split:not(.mod-root, .mod-horizontal) .workspace-tab-header-container,
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-split:not(.mod-left-split, .mod-right-split),
+body.background-slideshow-active.background-slideshow-active.background-slideshow-active .workspace-split.mod-left-split .workspace-sidedock-vault-profile {
+	background-color: transparent;
 }
 
 /* Fix double side headers */
