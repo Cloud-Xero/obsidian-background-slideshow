@@ -4,6 +4,10 @@ import { loadImage } from "./image-loader";
 import { findVaultFile } from "./vault-file";
 import { applyTransparency, removeTransparency } from "./transparency";
 
+// 表示中のレイヤーに付けるクラス。不透明度は styles.css 側で切り替え、
+// フェードは各レイヤーの transition で行う
+export const LAYER_VISIBLE_CLASS = "is-visible";
+
 function generatePicsumUrl(): string {
 	const random = Math.floor(Math.random() * 1000);
 	return `https://picsum.photos/1920/1080?random=${random}`;
@@ -90,7 +94,7 @@ export class Slideshow {
 			// 起動時に読み込むのは表示する1枚目だけ
 			if (index === 0 && imageUrls[0]) img.src = imageUrls[0];
 
-			layer.style.opacity = index === 0 ? "1" : "0";
+			layer.toggleClass(LAYER_VISIBLE_CLASS, index === 0);
 			layer.style.transition = `opacity ${this.settings.fadeTime}s ease-in-out`;
 			return layer;
 		});
@@ -140,8 +144,8 @@ export class Slideshow {
 			return;
 		}
 
-		currentLayer.setCssProps({ opacity: "0" });
-		nextLayer.setCssProps({ opacity: "1" });
+		currentLayer.removeClass(LAYER_VISIBLE_CLASS);
+		nextLayer.addClass(LAYER_VISIBLE_CLASS);
 		this.activeLayerIndex = nextLayerIndex;
 		this.currentImageIndex = nextImageIndex;
 	}

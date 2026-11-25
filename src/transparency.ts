@@ -16,15 +16,19 @@ export function isTransparencyActive(): boolean {
 
 const FALLBACK_RGB = "30, 30, 30";
 
+// 背景色を調べるための一時要素に、直接指定するスタイル。
+// styles.css に頼ると、有効化の直後（styles.css の読み込み前）は背景色が
+// 透明になってしまうため、CSS クラスではなく要素に直接指定する。
+const PROBE_STYLES = {
+	display: "none",
+	backgroundColor: "var(--background-primary)",
+};
+
 function getBackgroundRgb(): string {
 	// 一時要素の背景色に --background-primary を直接指定し、ブラウザに解決させた
-	// rgb() 値を取得する。styles.css に頼ると、有効化の直後（styles.css の読み込み前）は
-	// 背景色が透明になってしまうため、要素に直接指定している。
+	// rgb() 値を取得する
 	const el = document.body.createDiv();
-	el.setCssStyles({
-		display: "none",
-		backgroundColor: "var(--background-primary)",
-	});
+	el.setCssStyles(PROBE_STYLES);
 	const color = getComputedStyle(el).backgroundColor;
 	el.remove();
 
