@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { TFile, type App, type PluginManifest } from "obsidian";
 import BackgroundSlideshowPlugin from "../src/main";
+import { LAYER_VISIBLE_CLASS } from "../src/slideshow";
 import { loadImage } from "../src/image-loader";
 import { DEFAULT_SETTINGS, type ImageData } from "../src/settings";
 
@@ -300,8 +301,23 @@ class FakeElement {
 	remove() {
 		this.removed = true;
 	}
+	hasClass(cls: string): boolean {
+		return this.className.split(" ").includes(cls);
+	}
 	addClass(cls: string) {
-		this.className = cls;
+		if (!this.hasClass(cls)) {
+			this.className = [this.className, cls].filter(Boolean).join(" ");
+		}
+	}
+	removeClass(cls: string) {
+		this.className = this.className
+			.split(" ")
+			.filter((c) => c && c !== cls)
+			.join(" ");
+	}
+	toggleClass(cls: string, value: boolean) {
+		if (value) this.addClass(cls);
+		else this.removeClass(cls);
 	}
 	setCssProps(props: Record<string, string>) {
 		Object.assign(this.style, props);
@@ -387,8 +403,8 @@ describe("スライドの切り替え", () => {
 		return { plugin, container };
 	};
 
-	const opacities = (container: FakeElement) =>
-		container.children.map((layer) => layer.style.opacity);
+	const visible = (container: FakeElement) =>
+		container.children.map((layer) => layer.hasClass(LAYER_VISIBLE_CLASS));
 	const srcs = (container: FakeElement) =>
 		container.children.map((layer) => layer.querySelector("img")!.src);
 
@@ -417,7 +433,7 @@ describe("スライドの切り替え", () => {
 
 		expect(container.children).toHaveLength(2);
 		expect(srcs(container)).toEqual(["https://example.com/a.jpg", ""]);
-		expect(opacities(container)).toEqual(["1", "0"]);
+		expect(visible(container)).toEqual([true, false]);
 	});
 
 	it("コンテナ・レイヤー・画像を所定の class と親子関係で body の先頭に作る", async () => {
@@ -428,10 +444,9 @@ describe("スライドの切り替え", () => {
 
 		expect(container.tagName).toBe("div");
 		expect(container.className).toBe("background-slideshow-container");
-		expect(container.children.map((l) => l.className)).toEqual([
-			"background-slideshow-layer",
-			"background-slideshow-layer",
-		]);
+		expect(
+			container.children.map((l) => l.hasClass("background-slideshow-layer")),
+		).toEqual([true, true]);
 		for (const layer of container.children) {
 			expect(layer.children).toHaveLength(1);
 			expect(layer.children[0]!.tagName).toBe("img");
@@ -447,10 +462,10 @@ describe("スライドの切り替え", () => {
 
 		await tick();
 		expect(loads.map((l) => l.url)).toEqual(["https://example.com/b.jpg"]);
-		expect(opacities(container)).toEqual(["1", "0"]);
+		expect(visible(container)).toEqual([true, false]);
 
 		await settle(0, true);
-		expect(opacities(container)).toEqual(["0", "1"]);
+		expect(visible(container)).toEqual([false, true]);
 	});
 
 	it("レイヤーを入れ替えながら、登録順に画像を切り替えて先頭に戻る", async () => {
@@ -469,7 +484,7 @@ describe("スライドの切り替え", () => {
 			"https://example.com/c.jpg",
 			"https://example.com/a.jpg",
 		]);
-		expect(opacities(container)).toEqual(["0", "1"]);
+		expect(visible(container)).toEqual([false, true]);
 		expect(srcs(container)[1]).toBe("https://example.com/a.jpg");
 	});
 
@@ -496,7 +511,7 @@ describe("スライドの切り替え", () => {
 		await tick();
 		await settle(0, false);
 
-		expect(opacities(container)).toEqual(["1", "0"]);
+		expect(visible(container)).toEqual([true, false]);
 		expect(warn).toHaveBeenCalledTimes(1);
 
 		// 次の回は同じ画像から改めて試す
@@ -524,7 +539,7 @@ describe("スライドの切り替え", () => {
 		plugin.stopSlideshow();
 		await settle(0, true);
 
-		expect(opacities(container)).toEqual(["1", "0"]);
+		expect(visible(container)).toEqual([true, false]);
 	});
 
 	it("再起動後に古い読み込みが終わっても、新しいスライドショーに影響しない", async () => {
@@ -538,14 +553,14 @@ describe("スライドの切り替え", () => {
 		const newContainer = body.children[0]!;
 		await settle(0, true);
 
-		expect(opacities(oldContainer)).toEqual(["1", "0"]);
-		expect(opacities(newContainer)).toEqual(["1", "0"]);
+		expect(visible(oldContainer)).toEqual([true, false]);
+		expect(visible(newContainer)).toEqual([true, false]);
 
 		// 新しいスライドショーは古い読み込みに妨げられず切り替えられる
 		await tick();
 		expect(loads).toHaveLength(2);
 		await settle(1, true);
-		expect(opacities(newContainer)).toEqual(["0", "1"]);
+		expect(visible(newContainer)).toEqual([false, true]);
 	});
 
 	it("画像が1枚だけなら切り替えない", async () => {
