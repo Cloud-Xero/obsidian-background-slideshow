@@ -7,6 +7,11 @@ updates:
       ignore:
           # obsidian は minAppVersion と合わせて手動で上げる
           - dependency-name: "obsidian"
+          # 型定義は手元と CI で使う Node のメジャーバージョン（24 系）に合わせる。
+          # 新しいメジャーの型にすると、実行環境に無い API を使っても型チェックで気づけないため、
+          # Node を上げるときに手動で上げる
+          - dependency-name: "@types/node"
+            update-types: ["version-update:semver-major"]
       groups:
           # マイナー・パッチだけをまとめる。メジャー更新はどのグループにも入らず、
           # パッケージごとに個別の PR になるので、1つずつ判断できる
